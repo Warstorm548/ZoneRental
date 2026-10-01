@@ -50,6 +50,24 @@ configurations.all {
     }
 }
 
+// Local-only test suite using MockK + MockBukkit (src/mockTest). Not part of check/build,
+// so GitHub CI never runs it. Run with: ./gradlew mockTest
+sourceSets {
+    create("mockTest") {
+        compileClasspath += sourceSets.main.get().output
+        runtimeClasspath += sourceSets.main.get().output
+    }
+}
+
+// Tests need the compileOnly APIs (Paper, WorldGuard, WorldEdit, Vault) on their classpath
+configurations.testImplementation {
+    extendsFrom(configurations.compileOnly.get())
+}
+val mockTestImplementation: Configuration by configurations.getting {
+    extendsFrom(configurations.testImplementation.get())
+}
+configurations["mockTestRuntimeOnly"].extendsFrom(configurations.testRuntimeOnly.get())
+
 dependencies {
     // Paper API
     compileOnly("io.papermc.paper:paper-api:1.21.3-R0.1-SNAPSHOT")
@@ -94,6 +112,17 @@ dependencies {
 
     // Kotlin Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+
+    // Unit tests (src/test) - run in CI
+    testImplementation(platform("org.junit:junit-bom:5.11.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation(kotlin("test-junit5"))
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    // Mock tests (src/mockTest) - local only
+    // MockBukkit 4.26.x is the last line built against Paper 1.21.3 (our compile target)
+    mockTestImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.26.0")
+    mockTestImplementation("io.mockk:mockk:1.14.11")
 }
 
 java {
@@ -111,6 +140,33 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
     }
+}
+
+// -PrunKnownIssues also runs the @Disabled known-issue tests (expected to fail until the bug is fixed)
+tasks.withType<Test>().configureEach {
+    if (project.hasProperty("runKnownIssues")) {
+        systemProperty("junit.jupiter.conditions.deactivate", "org.junit.*DisabledCondition")
+    }
+}
+
+tasks.test {
+    useJUnitPlatform()
+    workingDir = projectDir
+    // Consistency tests read these files directly; re-run when they change
+    inputs.dir("src/main")
+    inputs.files("CHANGELOG.md", "build.gradle.kts")
+}
+
+val mockTest by tasks.registering(Test::class) {
+    description = "Runs the local-only MockK/MockBukkit test suite (not run by CI)."
+    group = "verification"
+    testClassesDirs = sourceSets["mockTest"].output.classesDirs
+    classpath = sourceSets["mockTest"].runtimeClasspath
+    useJUnitPlatform()
+    workingDir = projectDir
+    // MockK inline mocking attaches a Java agent at runtime (warns on Java 21+ without this)
+    jvmArgs("-XX:+EnableDynamicAgentLoading")
+    shouldRunAfter(tasks.test)
 }
 
 tasks.processResources {

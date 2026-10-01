@@ -18,7 +18,14 @@ Output: `build/libs/ZoneRental-<version>.jar`. The plain `jar` task is disabled;
 
 `build.sh` runs `clean` + `build` but checks for a hard-coded `ZoneRental-3.0.0.jar`, so it **reports "Build FAILED" even when the build succeeds**. Use `./gradlew clean build` instead.
 
-There is no `src/test` source set. CI runs `./gradlew test` with `continue-on-error`.
+## Tests
+
+```bash
+./gradlew test       # unit suite: runs in CI, also part of `build`/`check`
+./gradlew mockTest   # MockK + MockBukkit suite: local only, never run by CI
+```
+
+Both suites must pass locally before pushing. Details: [Automated tests](../testing/automated-tests.md).
 
 ## Build configuration (`build.gradle.kts`)
 
@@ -30,13 +37,14 @@ There is no `src/test` source set. CI runs `./gradlew test` with `continue-on-er
 | `implementation` (shaded) | Kotlin stdlib, `mccoroutine-bukkit-api` / `-core:2.21.0`, `kotlinx-coroutines-core:1.9.0` |
 | Relocations | `kotlin` → `com.zonerental.shaded.kotlin`, `kotlinx.coroutines` → `com.zonerental.shaded.kotlinx.coroutines`, `com.github.shynixn.mccoroutine` → `com.zonerental.shaded.mccoroutine` |
 | Forced versions | Guava 33.3.1-jre, Gson 2.11.0, fastutil 8.5.15, log4j-bom 2.24.1 (WorldGuard/WorldEdit transitive deps are also excluded) |
+| Test dependencies (not shaded) | `src/test`: JUnit BOM 5.11.4, `kotlin("test-junit5")`. `src/mockTest` source set: + `mockbukkit-v1.21:4.26.0`, `mockk:1.14.11`. Both extend `compileOnly`. `-PrunKnownIssues` enables `@Disabled` tests. |
 | Repositories | Maven Central, PaperMC, JitPack (Vault), EngineHub (WG/WE), Sonatype snapshots |
 
 ## CI (`.github/workflows/`)
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `gradle-ci.yml` | push / PR to `main`, `master`, `develop`; manual | Build, test (non-blocking), check that the JAR contains shaded Kotlin, upload the JAR artifact |
+| `gradle-ci.yml` | push / PR to `main`, `master`, `develop`; manual | Build (runs the unit tests), run the unit tests (**failures fail the check**), check that the JAR contains shaded Kotlin, upload the JAR artifact. Does not run `mockTest`. |
 | `publish-modrinth.yml` | push to `main`, ignoring `**.md`, `docs/**`, `.gitignore`, `LICENSE` | Build and publish to Modrinth. Release notes are the `## [<version>]` section of **`CHANGELOG.md` (must stay in the repo root)** |
 
 ## Versioning (SemVer)
