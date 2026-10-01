@@ -1,6 +1,8 @@
 # Source Layout
 
-**3 Java files + 48 Kotlin files** under `src/main/`. There is no test source set. New code should be written in Kotlin.
+**3 Java files + 48 Kotlin files** under `src/main/`. New code should be written in Kotlin.
+
+Tests live in `src/test/kotlin` (unit suite, runs in CI) and `src/mockTest/kotlin` (MockK + MockBukkit, local only). See [Automated tests](../testing/automated-tests.md).
 
 ```
 src/main/

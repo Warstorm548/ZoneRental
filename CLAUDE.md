@@ -23,15 +23,21 @@ Guidance for Claude Code (claude.ai/code) in this repository. This file is an **
 | Async | MCCoroutine (bukkit api + core) | 2.21.0 | Shaded; main class is `SuspendingJavaPlugin` |
 | Async | kotlinx-coroutines-core | 1.9.0 | Shaded |
 | Integration | EzChestShop / EzChestShopReborn | runtime reflection | Soft dependency |
-| CI | GitHub Actions | `.github/workflows/` | Build on `main`/`develop`; Modrinth publish on `main` |
+| Testing | JUnit 5 (BOM) + kotlin-test | 5.11.4 | Unit suite `src/test`, runs in CI |
+| Testing | MockBukkit (`mockbukkit-v1.21`) | 4.26.0 | Local-only `src/mockTest` suite; 4.26.x is the last line built for Paper 1.21.3 |
+| Testing | MockK | 1.14.11 | Local-only `src/mockTest` suite |
+| CI | GitHub Actions | `.github/workflows/` | Build + unit tests (gating) on `main`/`develop`; Modrinth publish on `main` |
 
 ## Build
 
 ```bash
-./gradlew clean build          # → build/libs/ZoneRental-<version>.jar
+./gradlew clean build          # → build/libs/ZoneRental-<version>.jar (also runs unit tests)
+./gradlew test                 # unit suite, same as CI
+./gradlew mockTest             # MockK/MockBukkit suite, local only (never run by CI)
+./gradlew test mockTest -PrunKnownIssues   # also run @Disabled known-issue tests (expected to fail)
 ```
 
-Don't rely on `build.sh` (it checks a hard-coded old JAR name). There are no tests. Details: [docs/development/building.md](docs/development/building.md)
+**Run `./gradlew test mockTest` locally and make sure both pass before any push or PR.** Don't rely on `build.sh` (it checks a hard-coded old JAR name). Details: [building.md](docs/development/building.md), [automated-tests.md](docs/testing/automated-tests.md)
 
 ## Documentation index
 
@@ -62,6 +68,7 @@ Don't rely on `build.sh` (it checks a hard-coded old JAR name). There are no tes
 - [building.md](docs/development/building.md): Gradle config, shading, CI workflows, version bumps
 
 ### Testing: `docs/testing/`
+- [automated-tests.md](docs/testing/automated-tests.md): unit vs local mock suite, commands, known-issue test convention, regression test map
 - [in-game-testing-checklist.md](docs/testing/in-game-testing-checklist.md): manual test plan
 
 ### Reference: `docs/reference/`
@@ -83,6 +90,7 @@ Don't rely on `build.sh` (it checks a hard-coded old JAR name). There are no tes
 - **Persistence:** in-memory with change tracking and a 5-minute autosave. `RentalManager.saveAllRentals()` is a no-op unless the rentals are marked changed; editing `Rental` fields directly doesn't mark them ([conventions](docs/development/conventions.md#persisting-changes)).
 - **Commands:** registered dynamically with a configurable prefix (default `zr`). New commands go in `ZoneRental.registerCommands()` **and** `checkPrefixConflicts()`, not under `plugin.yml` `commands:` ([how-to](docs/development/conventions.md#adding-a-command)).
 - **Refunds:** use `RentalManager.issueRefund` / `resetRentalWithRefund(regionName, world)`; they cap at `netRefundableAmount`.
+- **Tests:** logic with no server → `src/test` (CI). Needs Bukkit objects or `ZoneRental` → `src/mockTest`, extending `MockPluginTest`. Bug fixes get a regression test, and fixing a known issue means enabling its `@Disabled` test or removing its allowlist entry.
 - **Threading:** scheduled tasks and the expiry coroutine run on the main thread; only file I/O uses `Dispatchers.IO` ([architecture](docs/development/architecture.md#threading-model)).
 
 ## Versioning (SemVer)
