@@ -1,11 +1,11 @@
 # In-Game Testing Checklist
 
-Comprehensive testing checklist for ZoneRental plugin v2.6.0.
+Manual in-game test plan for ZoneRental (current: 3.2.0). Items marked **(known issue)** are expected to fail with the current code; see [Known issues](../reference/known-issues.md).
 
 ## Prerequisites
 
 Before testing, ensure you have:
-- [ ] Paper/Spigot 1.21+ server running
+- [ ] Paper 1.21+ server running
 - [ ] Vault plugin installed
 - [ ] WorldGuard 7.0.14+ installed
 - [ ] WorldEdit 7.3.16+ installed
@@ -32,23 +32,24 @@ Basic functionality verification:
 ### Sign Creation
 - [ ] `/zrcreatesign <region>` creates a rental sign
 - [ ] Sign displays correct format (AVAILABLE, price, region name)
-- [ ] Sign updates automatically every 30 seconds
+- [ ] Sign redraws within 30 seconds of a status or override change
 - [ ] Invalid region name shows error message
 
 ### Renting a Region
 - [ ] Right-click available sign to rent
 - [ ] Money deducted from player balance
 - [ ] Player added to WorldGuard region members
-- [ ] Sign updates to RENTED status with time remaining
+- [ ] Sign updates to RENTED format (owner, expiry date)
 - [ ] Rental confirmation message displayed
-- [ ] Rental stored in `rentals.yml`
+- [ ] Rental written to `rentals.yml` after autosave (5 min) or shutdown
 
 ### Extending a Rental
 - [ ] Shift-click owned rental sign to extend
 - [ ] Extension payment deducted
 - [ ] Time added to rental
 - [ ] Extension count incremented
-- [ ] Extension limit enforced (max-extensions config)
+- [ ] Extension limit enforced (global `extension.max-extensions`)
+- [ ] Extension cost = region price × `extension.price-multiplier`
 - [ ] Cannot extend someone else's rental
 
 ### Rental Expiration
@@ -76,13 +77,13 @@ Basic functionality verification:
 - [ ] Wall sign: Block behind sign is protected
 - [ ] Standing sign: Block below sign is protected
 - [ ] Support block cannot be broken by players
-- [ ] Support block restored on `/zrremove`
+- [ ] Support block restored on `/zrremove` (sign block stays in place)
 
 ### Sign Updates
 - [ ] Sign updates when rental status changes
-- [ ] Time remaining updates periodically
+- [ ] `{days}`/`{hours}` on signs refresh only on state change **(known issue: they go stale)**
 - [ ] Sign shows correct player name
-- [ ] Color codes display correctly
+- [ ] MiniMessage formatting displays correctly (legacy `&` codes show literally)
 
 ---
 
@@ -99,13 +100,13 @@ Basic functionality verification:
 - [ ] `/zrremove` refunds if region was rented
 - [ ] Refund message shows correct amount
 - [ ] Player balance updated correctly
-- [ ] Offline player refund stored for later
+- [ ] Offline player refunded directly via Vault
 
 ### Per-Region Pricing
 - [ ] Default price used when no override
 - [ ] Region-specific price override works
 - [ ] Group price override works
-- [ ] Permission-based pricing works (VIP discounts)
+- [ ] Permission-based pricing **(known issue: dotted permission keys don't work)**
 
 ---
 
@@ -115,18 +116,17 @@ Basic functionality verification:
 - [ ] Region state captured when rental starts
 - [ ] `.schem` file created in `schematics/` folder (Sponge format)
 - [ ] Schematic file is not empty (> 1KB)
-- [ ] Entities captured (if enabled)
+- [ ] Entities captured (always on)
 
 ### Restoration
 - [ ] Blocks restored on rental expiration
 - [ ] Blocks restored on `/zrreset`
 - [ ] Blocks restored on `/zrremove`
-- [ ] Entities restored (if enabled)
+- [ ] Entities restored, not duplicated **(verify: see known issue X3)**
 - [ ] Schematic deleted after restoration (if configured)
 
 ### Configuration
 - [ ] `restoration.enabled` toggle works
-- [ ] `restoration.restore-entities` toggle works
 - [ ] `restoration.auto-delete-schematics` toggle works
 - [ ] `restoration.schematic-cache-size` limits memory usage
 
@@ -136,7 +136,9 @@ Basic functionality verification:
 
 ### Item Collection
 - [ ] Items collected from chests on expiration
-- [ ] Items collected from barrels, shulker boxes
+- [ ] Items collected from barrels
+- [ ] Player-placed shulker boxes preserved **(known issue D4: they are lost)**
+- [ ] Doors/beds stored as one item **(known issue X1: stored per half)**
 - [ ] Items collected from hoppers, dispensers, droppers
 - [ ] Items collected from furnaces, blast furnaces, smokers
 - [ ] Items collected from brewing stands
@@ -144,7 +146,8 @@ Basic functionality verification:
 ### Item Retrieval
 - [ ] `/zrretrieve` opens GUI
 - [ ] Stored items displayed in GUI
-- [ ] Clicking item returns it to player inventory
+- [ ] Taking an item moves it to the player inventory
+- [ ] Placing items into the GUI is blocked (shift-click, number key, cursor)
 - [ ] Multiple pages work for large collections
 - [ ] Items removed from storage after retrieval
 
@@ -247,9 +250,11 @@ Basic functionality verification:
 ### Region Overrides
 - [ ] `/zroverride price <region> <value>` works
 - [ ] `/zroverride duration <region> <value>` works
-- [ ] `/zroverride max-extensions <region> <value>` works
-- [ ] `/zroverride extension-price <region> <value>` works
-- [ ] `/zroverride allow-extensions <region> <value>` works
+- [ ] `/zroverride maxextensions <region> <value>` is saved **(known issue: not applied)**
+- [ ] `/zroverride extensionprice <region> <value>` is saved **(known issue: not applied)**
+- [ ] `/zroverride allowextensions <region> <value>` is saved **(known issue: not applied)**
+- [ ] `/zroverride extensionduration <region> <value>` is saved **(known issue: not applied)**
+- [ ] Region in a group rejects individual overrides
 - [ ] `/zroverride list <region>` shows overrides
 
 ### Override Priority
@@ -259,7 +264,7 @@ Basic functionality verification:
 
 ### Verification
 - [ ] `/zrverify` reports orphaned configs
-- [ ] `/zrverify <region>` shows region config status
+- [ ] `/zrverify` lists regions using defaults vs overrides
 
 ---
 
@@ -295,6 +300,7 @@ Basic functionality verification:
 - [ ] `/zrremove <region>` removes setup
 - [ ] Refund issued (if rented)
 - [ ] Sign config removed
+- [ ] Region removed from its group
 - [ ] Support block restored
 - [ ] Schematic deleted
 
@@ -302,7 +308,9 @@ Basic functionality verification:
 - [ ] `/zrduration add <region> <time>` adds time
 - [ ] `/zrduration remove <region> <time>` removes time
 - [ ] `/zrduration set <region> <time>` sets exact time
-- [ ] `/zrduration reset <region>` resets to default
+- [ ] `/zrduration reset <region>` resets to `durations.default-days`
+- [ ] Duration changes survive a restart **(known issue D2)**
+- [ ] `2d 3h` parses; `1d12h` **(known issue: parses as 12h)**
 - [ ] Extension refund on reset (if configured)
 
 ### Info Command
@@ -310,13 +318,13 @@ Basic functionality verification:
 - [ ] Shows renter, time remaining, extensions
 
 ### List Command
-- [ ] `/zrlist` shows all rentals
-- [ ] `/zrlist <player>` shows player's rentals
+- [ ] `/zrlist` shows your rentals
+- [ ] `/zrlist <player>` shows that player's rentals (needs `zonerental.admin.list.others`)
 
 ### Reload Command
 - [ ] `/zrreload` reloads configuration
 - [ ] Changes take effect immediately
-- [ ] No data loss on reload
+- [ ] No data loss on reload **(known issue D1: unsaved changes are discarded)**
 
 ---
 
