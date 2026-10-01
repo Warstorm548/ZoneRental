@@ -1,3 +1,5 @@
+> **Archived.** Historical implementation notes from the RegionRental era (`/rr*` commands, `Rental.java`). For current behaviour see [Refunds](../features/refunds.md).
+
 # Refund System Implementation - COMPLETE ✅
 
 ## Summary
