@@ -3,6 +3,7 @@ package com.zonerental.config
 import com.zonerental.testsupport.MockPluginTest
 import org.bukkit.Material
 import org.bukkit.inventory.ItemStack
+import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -62,6 +63,8 @@ class StorageConfigTest : MockPluginTest() {
         val file = File(dataFolder, "storage.yml")
         assertTrue(file.setWritable(false))
         try {
+            // Root can still write to read-only files, so skip rather than fail in that environment
+            Assumptions.assumeFalse(file.canWrite(), "file is still writable (running as root?)")
             storage.save()
             assertTrue(storage.isDirty, "isDirty must stay true when the file can't be written")
         } finally {

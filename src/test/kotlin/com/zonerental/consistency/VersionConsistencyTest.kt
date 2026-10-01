@@ -3,6 +3,7 @@ package com.zonerental.consistency
 import com.zonerental.testsupport.ProjectFiles
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * The Modrinth publish workflow reads the version from build.gradle.kts and extracts the
@@ -28,8 +29,13 @@ class VersionConsistencyTest {
 
     @Test
     fun `changelog section for build version ends with a separator`() {
-        val section = ProjectFiles.changelog.substringAfter("## [$buildVersion]", "")
-        assertEquals(true, section.isNotEmpty() && section.contains("\n---"),
-            "publish-modrinth.yml extracts from '## [$buildVersion]' up to the next '---'")
+        // Only the current release's section, up to the next release heading
+        val section = ProjectFiles.changelog
+            .substringAfter("## [$buildVersion]", "")
+            .substringBefore("\n## [")
+        assertTrue(section.isNotEmpty(), "No '## [$buildVersion]' section in CHANGELOG.md")
+        assertTrue(Regex("^---\\s*$", RegexOption.MULTILINE).containsMatchIn(section),
+            "publish-modrinth.yml extracts from '## [$buildVersion]' up to the next '---'; " +
+            "the separator must be inside this release's section, on its own line")
     }
 }
