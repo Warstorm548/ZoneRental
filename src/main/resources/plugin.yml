@@ -1,5 +1,5 @@
 name: ZoneRental
-version: 3.2.0
+version: 3.3.0
 main: com.zonerental.ZoneRental
 api-version: '1.21'
 author: Jean-Luc
@@ -39,6 +39,7 @@ permissions:
     default: op
     children:
       zonerental.admin.reload: true
+      zonerental.admin.create: true
       zonerental.admin.createsign: true
       zonerental.admin.reset: true
       zonerental.admin.duration: true
@@ -100,6 +101,10 @@ permissions:
     description: Reload the plugin
     default: op
 
+  zonerental.admin.create:
+    description: Register regions as rental spaces
+    default: op
+
   zonerental.admin.createsign:
     description: Create rental signs
     default: op
@@ -113,7 +118,7 @@ permissions:
     default: op
 
   zonerental.admin.remove:
-    description: Remove ZoneRental setup from a region
+    description: Remove rental signs or the ZoneRental setup of a region
     default: op
 
   zonerental.admin.verify:

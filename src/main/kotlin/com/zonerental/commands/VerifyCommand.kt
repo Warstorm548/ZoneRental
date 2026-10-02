@@ -38,7 +38,8 @@ class VerifyCommand(private val plugin: ZoneRental) : CommandExecutor {
 
         // Display summary
         sender.sendMiniMessage("<aqua>Summary:")
-        sender.sendMiniMessage("<gray>  Total regions with signs: <white>$totalSigns")
+        sender.sendMiniMessage("<gray>  Total rental spaces:      <white>$totalSigns")
+        sender.sendMiniMessage("<gray>  Total rental signs:       <white>${plugin.signsConfig.getAllSigns().size}")
         sender.sendMiniMessage("<gray>  Using custom overrides:   <white>$withCustomSettings")
         sender.sendMiniMessage("<gray>  Using default settings:   <white>$usingDefaults")
         sender.sendMiniMessage("")
@@ -53,14 +54,14 @@ class VerifyCommand(private val plugin: ZoneRental) : CommandExecutor {
             sender.sendMiniMessage("<yellow>  Use /zroverride to set custom values for these regions")
             sender.sendMiniMessage("")
         } else {
-            sender.sendMiniMessage("<yellow>All regions with signs have custom overrides configured!")
+            sender.sendMiniMessage("<yellow>All rental spaces have custom overrides configured!")
             sender.sendMiniMessage("")
         }
 
         // Display orphaned configs (potential issue)
         if (orphanedConfigs.isNotEmpty()) {
             sender.sendMiniMessage("<gold>Orphaned Configurations (${orphanedConfigs.size}):")
-            sender.sendMiniMessage("<gray>  These custom configs exist but have no rental sign:")
+            sender.sendMiniMessage("<gray>  These custom configs exist but have no rental space:")
             orphanedConfigs.forEach { region ->
                 sender.sendMiniMessage("<gray>    - <white>$region")
             }
@@ -68,16 +69,59 @@ class VerifyCommand(private val plugin: ZoneRental) : CommandExecutor {
             sender.sendMiniMessage("")
         }
 
+        val spaceProblems = showRentalSpaceProblems(sender)
+
         // Summary message
-        if (orphanedConfigs.isEmpty()) {
-            sender.sendMiniMessage("<green>✓ No issues found - all configs are linked to signs")
+        if (orphanedConfigs.isEmpty() && spaceProblems == 0) {
+            sender.sendMiniMessage("<green>✓ No issues found - all configs are linked to rental spaces")
         } else {
-            sender.sendMiniMessage("<yellow>⚠ Found ${orphanedConfigs.size} orphaned config(s) - consider cleanup")
+            if (orphanedConfigs.isNotEmpty()) {
+                sender.sendMiniMessage("<yellow>⚠ Found ${orphanedConfigs.size} orphaned config(s) - consider cleanup")
+            }
+            if (spaceProblems > 0) {
+                sender.sendMiniMessage("<yellow>⚠ Found $spaceProblems rental space problem(s) - see above")
+            }
         }
 
         sender.sendMiniMessage("")
         sender.sendMiniMessage("<gold><bold>=================================")
 
         return true
+    }
+
+    /**
+     * Lists rental spaces that can't work as configured: missing world, missing WorldGuard
+     * region, or no signs (nobody can rent it).
+     *
+     * @return number of problems listed
+     */
+    private fun showRentalSpaceProblems(sender: CommandSender): Int {
+        val missingWorld = mutableListOf<String>()
+        val missingRegion = mutableListOf<String>()
+        val noSigns = mutableListOf<String>()
+
+        for (key in plugin.signsConfig.getRegisteredRegions().sorted()) {
+            val world = plugin.server.getWorld(key.substringBefore(":"))
+            when {
+                world == null -> missingWorld += key
+                !plugin.worldGuardManager.regionExists(key.substringAfter(":"), world) -> missingRegion += key
+                plugin.signsConfig.getSigns(key).isEmpty() -> noSigns += key
+            }
+        }
+
+        val prefix = plugin.activePrefix
+        showList(sender, "World not loaded or deleted", missingWorld,
+            "Load the world and run /${prefix}remove all <world:region>, or delete the entry from signs.yml while the server is stopped")
+        showList(sender, "WorldGuard region missing", missingRegion, "Use /${prefix}remove all <world:region> to clean up")
+        showList(sender, "Rental spaces without signs (can't be rented)", noSigns, "Use /${prefix}createsign <world:region> to add one")
+        return missingWorld.size + missingRegion.size + noSigns.size
+    }
+
+    private fun showList(sender: CommandSender, title: String, entries: List<String>, hint: String) {
+        if (entries.isEmpty()) return
+        sender.sendMiniMessage("<gold>$title (${entries.size}):")
+        entries.forEach { sender.sendMiniMessage("<gray>    - <white>$it") }
+        sender.sendMiniMessage("<yellow>  $hint")
+        sender.sendMiniMessage("")
     }
 }

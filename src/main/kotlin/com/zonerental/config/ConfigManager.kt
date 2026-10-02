@@ -63,6 +63,13 @@ class ConfigManager(private val plugin: ZoneRental) {
         private set
     var isSignProtection: Boolean = true
         private set
+    var isEnvironmentProtection: Boolean = true
+        private set
+    var isLoadChunksForSignUpdates: Boolean = true
+        private set
+    /** Maximum signs per rental space; -1 means unlimited. */
+    var maxSignsPerRegion: Int = DEFAULT_MAX_SIGNS_PER_REGION
+        private set
 
     // Async scanning settings
     var isAsyncScanningEnabled: Boolean = true
@@ -176,6 +183,14 @@ class ConfigManager(private val plugin: ZoneRental) {
         isAutoDeleteSchematics = config.getBoolean("restoration.auto-delete-schematics", true)
         isItemStorage = config.getBoolean("storage.enabled", true)
         isSignProtection = config.getBoolean("signs.protect-signs", true)
+        isEnvironmentProtection = config.getBoolean("signs.environment-protection", true)
+        isLoadChunksForSignUpdates = config.getBoolean("signs.load-chunks-for-updates", true)
+        val maxSigns = config.getInt("signs.max-per-region", DEFAULT_MAX_SIGNS_PER_REGION)
+        maxSignsPerRegion = if (maxSigns == -1 || maxSigns >= 1) maxSigns else {
+            plugin.logger.warning("signs.max-per-region must be -1 (unlimited) or at least 1, got $maxSigns. " +
+                "Using $DEFAULT_MAX_SIGNS_PER_REGION")
+            DEFAULT_MAX_SIGNS_PER_REGION
+        }
 
         // Async scanning settings
         isAsyncScanningEnabled = config.getBoolean("async-scanning.enabled", true)
@@ -211,8 +226,15 @@ class ConfigManager(private val plugin: ZoneRental) {
             "items-stored" to "<green>Your items from <yellow>{region}<green> have been stored!",
             "items-retrieved" to "<green>You have retrieved your stored items!",
             "no-stored-items" to "<red>You have no stored items!",
-            "sign-created" to "<green>Rental sign created for region <yellow>{region}!",
-            "sign-removed" to "<green>Rental sign removed!",
+            "sign-created" to "<green>Rental sign <yellow>#{id}<green> created for <yellow>{region}<green>!",
+            "sign-removed" to "<green>Rental sign <yellow>#{id}<green> removed from <yellow>{region}<green>.",
+            "sign-not-found" to "<red>Rental space <yellow>{region}<red> has no sign <yellow>#{id}<red>!",
+            "sign-not-rental" to "<red>This is not a rental sign!",
+            "sign-already-registered" to "<red>This sign is already rental sign <yellow>#{id}<red> of <yellow>{region}<red>!",
+            "sign-limit-reached" to "<red>Rental space <yellow>{region}<red> already has the maximum of <yellow>{max}<red> signs!",
+            "region-registered" to "<green>Rental space <yellow>{region}<green> created. Add signs with the createsign command.",
+            "region-already-registered" to "<red>Rental space <yellow>{region}<red> is already registered!",
+            "region-not-registered" to "<red>Region <yellow>{region}<red> is not a rental space!",
             "rental-reset" to "<green>Rental for <yellow>{region}<green> has been reset!",
             "admin-reset-success" to "<green>Successfully reset rental for <yellow>{region}<green>. Player <yellow>{player}<green> has been refunded <yellow>{amount}<green>.",
             "rental-reset-refund" to "<green>Your rental of <yellow>{region}<green> has been reset by an admin. You have been refunded <yellow>{amount}<green>.",
@@ -243,6 +265,7 @@ class ConfigManager(private val plugin: ZoneRental) {
 
     companion object {
         private val MINI_MESSAGE = MiniMessage.miniMessage()
+        const val DEFAULT_MAX_SIGNS_PER_REGION = 3
     }
 
     fun getMessage(key: String, vararg replacements: String): Component {

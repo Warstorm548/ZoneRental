@@ -1,6 +1,6 @@
 # Source Layout
 
-**3 Java files + 48 Kotlin files** under `src/main/`. New code should be written in Kotlin.
+**3 Java files + 51 Kotlin files** under `src/main/`. New code should be written in Kotlin.
 
 Tests live in `src/test/kotlin` (unit suite, runs in CI) and `src/mockTest/kotlin` (MockK + MockBukkit, local only). See [Automated tests](../testing/automated-tests.md).
 
@@ -18,7 +18,7 @@ src/main/
 │   │   └── TpsMonitor.kt               # TPS-based throttling
 │   ├── commands/                       # One executor per command
 │   │   ├── RRCommand.kt                # /zr help (+ reload; list/info are stubs)
-│   │   ├── CreateSignCommand.kt  DurationCommand.kt  ExtendCommand.kt  GroupCommand.kt
+│   │   ├── CreateCommand.kt  CreateSignCommand.kt  DurationCommand.kt  ExtendCommand.kt  GroupCommand.kt
 │   │   ├── InfoCommand.kt  ListCommand.kt  MemberCommand.kt  OverrideCommand.kt
 │   │   ├── RefundHistoryCommand.kt  ReloadCommand.kt  RemoveCommand.kt  ResetCommand.kt
 │   │   ├── RetrieveCommand.kt  TpCommand.kt  VerifyCommand.kt
@@ -27,7 +27,7 @@ src/main/
 │   │   ├── ConfigManager.kt            # config.yml + messages (MiniMessage → Component)
 │   │   ├── RegionsConfig.kt            # regions.yml (region + group overrides)
 │   │   ├── GroupsConfig.kt             # groups.yml
-│   │   ├── SignsConfig.kt              # signs.yml + support-block index
+│   │   ├── SignsConfig.kt              # signs.yml: rental spaces, numbered signs, location/support/chunk indexes
 │   │   ├── StorageConfig.kt            # storage.yml
 │   │   ├── RegionOverride.kt           # UNUSED
 │   │   └── MessageFormatter.kt         # UNUSED
@@ -37,6 +37,8 @@ src/main/
 │   │   ├── StringExtensions.kt         # color() (deprecated), withPlaceholders()
 │   │   ├── LocationExtensions.kt       # mostly unused
 │   │   └── CollectionExtensions.kt     # unused
+│   ├── listeners/
+│   │   └── SignProtectionListener.kt   # explosions/pistons/fire/... protection + chunk-load redraws
 │   ├── managers/
 │   │   ├── RentalManager.kt  Rental.kt  SignManager.kt  StorageManager.kt
 │   │   ├── WorldEditManager.kt  WorldGuardManager.kt  ExpirationManager.kt
@@ -45,6 +47,7 @@ src/main/
 │   ├── models/
 │   │   ├── ParsedRegion.kt             # used by OverrideCommand
 │   │   ├── StorageGUISession.kt        # retrieval GUI pages (ITEMS_PER_PAGE = 45)
+│   │   ├── RentalSign.kt               # one sign in signs.yml (region world/name, ID, sign world, support block)
 │   │   ├── RefundRecord.kt             # UNUSED (Rental.RefundRecord is used instead)
 │   │   └── SupportBlockData.kt         # UNUSED
 │   └── util/

@@ -9,6 +9,7 @@ import com.zonerental.config.SignsConfig;
 import com.zonerental.config.StorageConfig;
 import com.zonerental.listeners.GroupChatListener;
 import com.zonerental.listeners.SignInteractListener;
+import com.zonerental.listeners.SignProtectionListener;
 import com.zonerental.managers.*;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
@@ -221,6 +222,7 @@ public class ZoneRental extends SuspendingJavaPlugin {
         // Register all commands with determined prefix
         registerCommandWithPrefix(commandMap, activePrefix, "", new RRCommand(this), "zonerental.user");
         registerCommandWithPrefix(commandMap, activePrefix, "reload", new ReloadCommand(this), "zonerental.admin.reload");
+        registerCommandWithPrefix(commandMap, activePrefix, "create", new CreateCommand(this), "zonerental.admin.create");
         registerCommandWithPrefix(commandMap, activePrefix, "createsign", new CreateSignCommand(this), "zonerental.admin.createsign");
         registerCommandWithPrefix(commandMap, activePrefix, "reset", new ResetCommand(this), "zonerental.admin.reset");
         registerCommandWithPrefix(commandMap, activePrefix, "retrieve", new RetrieveCommand(this), "zonerental.retrieve");
@@ -296,7 +298,7 @@ public class ZoneRental extends SuspendingJavaPlugin {
 
         // Check all subcommands
         String[] subcommands = {
-            "reload", "createsign", "reset", "retrieve", "info", "list",
+            "reload", "create", "createsign", "reset", "retrieve", "info", "list",
             "extend", "duration", "remove", "refundhistory", "verify", "override",
             "member", "tp", "group"
         };
@@ -441,6 +443,7 @@ public class ZoneRental extends SuspendingJavaPlugin {
     
     private void registerListeners() {
         getServer().getPluginManager().registerEvents(new SignInteractListener(this), this);
+        getServer().getPluginManager().registerEvents(new SignProtectionListener(this), this);
 
         // Register GroupChatListener for hybrid command prompts (Phase 2)
         groupChatListener = new GroupChatListener(this);

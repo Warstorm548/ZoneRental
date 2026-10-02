@@ -218,8 +218,22 @@ signs:
     - '<yellow>{owner}'
     - '<red>{hours}h left'
   
-  # Protect rental signs from being broken
+  # Protect rental signs and their support blocks from being broken by players
+  # (players with zonerental.admin.breaksign can still break them)
   protect-signs: true
+
+  # Protect rental signs and their support blocks from explosions (creepers, TNT,
+  # beds, respawn anchors...), pistons, fire, falling blocks, endermen, withers
+  # and leaf decay
+  environment-protection: true
+
+  # Maximum number of signs per rental space. -1 = unlimited.
+  # 0 or anything below -1 is invalid and falls back to 3.
+  max-per-region: 3
+
+  # true  = load a sign's chunk to redraw it when its rental changes
+  # false = leave unloaded chunks alone and redraw the sign when its chunk loads
+  load-chunks-for-updates: true
   
   # Allow breaking signs with permission
   allow-break-with-permission: true
@@ -478,9 +492,15 @@ messages:
   storage-expired: '<red>Your stored items have expired and been deleted!'
 
   # Sign messages
-  sign-created: '<green>Rental sign created for region <yellow>{region}!'
-  sign-removed: '<green>Rental sign removed!'
+  sign-created: '<green>Rental sign <yellow>#{id}<green> created for <yellow>{region}<green>!'
+  sign-removed: '<green>Rental sign <yellow>#{id}<green> removed from <yellow>{region}<green>.'
+  sign-not-found: '<red>Rental space <yellow>{region}<red> has no sign <yellow>#{id}<red>!'
   sign-not-rental: '<red>This is not a rental sign!'
+  sign-already-registered: '<red>This sign is already rental sign <yellow>#{id}<red> of <yellow>{region}<red>!'
+  sign-limit-reached: '<red>Rental space <yellow>{region}<red> already has the maximum of <yellow>{max}<red> signs!'
+  region-registered: '<green>Rental space <yellow>{region}<green> created. Add signs with the createsign command.'
+  region-already-registered: '<red>Rental space <yellow>{region}<red> is already registered!'
+  region-not-registered: '<red>Region <yellow>{region}<red> is not a rental space!'
   sign-protected: '<red>Rental signs are protected!'
   sign-support-protected: '<red>You cannot break this block - it supports a rental sign!'
 

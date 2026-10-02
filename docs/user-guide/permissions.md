@@ -29,6 +29,7 @@ Defined in `src/main/resources/plugin.yml`.
 | Node | Used by |
 |---|---|
 | `zonerental.admin.reload` | `/zrreload`, `/zr reload` |
+| `zonerental.admin.create` | `/zrcreate` |
 | `zonerental.admin.createsign` | `/zrcreatesign` |
 | `zonerental.admin.reset` | `/zrreset` |
 | `zonerental.admin.remove` | `/zrremove` |

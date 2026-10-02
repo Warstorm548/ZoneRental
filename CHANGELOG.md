@@ -24,6 +24,40 @@ Going forward, all references use the new name "ZoneRental".
 
 ---
 
+## [3.3.0] - Multiple Signs per Rental Space
+
+### Added
+
+- **Several signs per region.** A region can have more than one rental sign (`signs.max-per-region`, default `3`, `-1` = unlimited). Every sign gets a per-region ID (`#1`, `#2`, …) stored in `signs.yml`; IDs are never reused. All signs of a region are redrawn together.
+- **Signs in other worlds.** `/zrcreatesign world:shop1` puts a sign for a region anywhere, for example in a lobby world. Clicking it rents the region in its own world.
+- **`/zrcreate <world:region>`** registers a region as a rental space without a sign (permission `zonerental.admin.create`). `/zrcreatesign` still registers the region automatically.
+- **Removing single signs.** `/zrremove` while looking at a rental sign, or `/zrremove <world:region> <id>`, removes only that sign. The rental space and any rental are kept.
+- **Environment protection** (`signs.environment-protection`, default `true`): rental signs and their support blocks survive explosions (creepers, TNT, beds, respawn anchors…), pistons, fire, endermen, withers, falling blocks, leaf decay and fading blocks.
+- **`signs.load-chunks-for-updates`** (default `true`): set to `false` to redraw signs in unloaded chunks when the chunk loads instead of loading it.
+- `/zrverify` lists rental spaces with no signs, a missing WorldGuard region or a missing world.
+
+### Changed
+
+- **`/zrremove <region>` no longer removes anything.** The full teardown is now `/zrremove all <world:region>`, so a forgotten argument can't wipe a region. It also works when the WorldGuard region was already deleted.
+- **`signs.yml` layout.** Signs are numbered under their region and keep their own `world` field. Existing files are converted on first start; the original is saved as `signs.yml.pre-3.3.0.bak`. Restore it if you downgrade, because older versions can't read the new layout.
+- Standing and hanging signs show the text on both sides (wall signs on the front). Both sides are cleared when a sign is registered.
+- `signs.protect-signs` is now listed in the default `config.yml`.
+- `/zrtp` teleports to the region's oldest sign.
+- `signs.yml` is saved right after `/zrcreate`, `/zrcreatesign` and `/zrremove`, so `/zrreload` no longer forgets new signs.
+- New registrations use the region ID exactly as WorldGuard has it, so `Shop1` and `shop1` can't become two rental spaces.
+- Message changes: `sign-created` and `sign-removed` now take `{id}` and `{region}`; new keys `sign-not-found`, `sign-already-registered`, `sign-limit-reached`, `region-registered`, `region-already-registered`, `region-not-registered`.
+
+### Fixed
+
+- Creating a second sign for a region overwrote the first: only the newest sign was redrawn, clickable and protected, and the old support block stayed protected until a restart.
+- `/zrremove` left the physical sign behind; it now breaks the sign and restores its support block (only when no other rental sign uses that block).
+- Hanging signs protected the wrong support block.
+- Signs broken by admins stayed in `signs.yml`; they are now dropped immediately. Signs that disappear in other ways are dropped after two failed redraws, with a console warning.
+- Clicking a rental sign rebuilt the full sign list; sign lookups now use an index.
+- The `/zrremove` summary printed the `region-removed` message as raw object text.
+
+---
+
 ## [3.2.0] - Adventure API Migration
 
 ### Changed

@@ -34,7 +34,7 @@ Groups apply one set of overrides to many regions.
 - Regions are given as a comma-separated list: `shop1,shop2,world_nether:shop3`. Names without a world use the player's world; the console needs `world:region`.
 - If no regions are given, a player is prompted in chat (`GroupChatListener`): 60 s timeout, `cancel`/`stop` to abort.
 - `/zrgroup delete <name> confirm` removes the group and its overrides; members' individual overrides are **not** restored.
-- `/zrremove` removes the region from its group.
+- `/zrremove all` removes the region from its group.
 
 The `/zrgroup view` footer suggests `/zroverride <setting> <group> <value>`; the correct target is `group:<group>`.
 

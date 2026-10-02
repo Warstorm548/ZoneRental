@@ -16,7 +16,7 @@
 |---|---|---|
 | `RentalManager` | `managers/RentalManager.kt` | Rentals in a `ConcurrentHashMap<compositeKey, Rental>` plus owner and member indexes. Create, extend, expire (sync + `expireRentalAsync`), refunds, members, `rentals.yml` persistence with change tracking. |
 | `Rental` | `managers/Rental.kt` | Rental data (factories `Rental.create` / `Rental.fromStorage`), refund history, members, in-memory warning flags. |
-| `SignManager` | `managers/SignManager.kt` | Sign creation, support-block detection, `removeRegionSetup`, redrawing signs that changed. |
+| `SignManager` | `managers/SignManager.kt` | Sign creation (limit, duplicates), support-block detection, single-sign removal and `removeRegionSetup`, redrawing every sign of a changed rental space, two-pass cleanup of missing signs, chunk-load redraws. |
 | `WorldGuardManager` | `managers/WorldGuardManager.kt` | Region lookup and member add/remove. Always go through it rather than calling the WorldGuard API directly. |
 | `WorldEditManager` | `managers/WorldEditManager.kt` | Snapshot capture/restore, `.schem` I/O, LRU cache. |
 | `StorageManager` | `managers/StorageManager.kt` | Container and player-block collection (sync + async), retrieval GUI and its inventory listeners. Registers itself as a listener. |
@@ -25,8 +25,9 @@
 | `TeleportCooldownManager` | `managers/TeleportCooldownManager.kt` | In-memory `/zrtp` cooldowns. |
 | `AsyncScanService`, `TpsMonitor`, `ScanModels` | `async/` | ChunkSnapshot scanning, batch strategy, TPS-based throttling. |
 | `ConfigManager` | `config/ConfigManager.kt` | Reads `config.yml`; `getMessage()` returns an Adventure `Component`. |
-| `RegionsConfig` / `GroupsConfig` / `SignsConfig` / `StorageConfig` | `config/` | YAML data files with change tracking (`saveIfDirty`). `SignsConfig` keeps an index of support-block locations. |
-| `SignInteractListener` | `listeners/` (Java) | Sign clicks (rent/info/extend) and sign / support-block break protection. |
+| `RegionsConfig` / `GroupsConfig` / `SignsConfig` / `StorageConfig` | `config/` | YAML data files with change tracking (`saveIfDirty`). `SignsConfig` holds registered rental spaces and their numbered signs (`models/RentalSign`), with indexes by sign location, support-block location (several signs can share one) and chunk. |
+| `SignInteractListener` | `listeners/` (Java) | Sign clicks (rent/info/extend, in the region's world) and sign / support-block break protection; drops signs broken by admins. |
+| `SignProtectionListener` | `listeners/` (Kotlin) | Environment protection for signs and support blocks (explosions, pistons, fire, entities, decay) and chunk-load redraws. |
 | `GroupChatListener` | `listeners/` (Java) | Chat input for `/zrgroup` prompts. |
 | Commands | `commands/` | One `CommandExecutor` (most also `TabCompleter`) per command. |
 
@@ -42,7 +43,7 @@ Only `zr` is declared in `plugin.yml`. `ZoneRental.registerCommands()` takes the
 
 - Bukkit scheduled tasks (`runTaskTimer`) all run on the **main thread**: the expiry check, sign redraw, autosave, cooldown cleanup and group-prompt cleanup.
 - Expiry launches `plugin.launch { expireRentalAsync(...) }`, a coroutine on MCCoroutine's **main-thread dispatcher**. Scanning is split up by `delay()` rather than moved to another thread. `withContext(Dispatchers.IO)` is used for `storage.yml` writes and `.schem` load/save/delete.
-- `/zrreset` and `/zrremove` use the synchronous path. For large regions it calls the suspend scanners through `runBlocking` on the main thread.
+- `/zrreset` and `/zrremove all` use the synchronous path. For large regions it calls the suspend scanners through `runBlocking` on the main thread.
 - `ConcurrentHashMap` is used for rentals and indexes. `YamlConfiguration` objects are not thread-safe.
 
 ## Message pipeline

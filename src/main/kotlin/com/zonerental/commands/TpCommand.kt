@@ -108,8 +108,9 @@ class TpCommand(private val plugin: ZoneRental) : CommandExecutor, TabCompleter 
             }
         }
 
-        // Get sign location
-        val signLocation = plugin.signsConfig.getSignLocation(regionName, world) ?: run {
+        // Teleport to the oldest sign (lowest ID) whose world is loaded
+        val signLocation = plugin.signsConfig.getSigns(regionName, world)
+            .firstNotNullOfOrNull { it.location(plugin.server) } ?: run {
             player.sendMiniMessage("<red>No rental sign found for region ${parsed.getCompositeKey()}")
             player.sendMiniMessage("<yellow>Please contact an administrator.")
             return true
@@ -125,10 +126,10 @@ class TpCommand(private val plugin: ZoneRental) : CommandExecutor, TabCompleter 
         }
 
         // Show cross-world warning if applicable
-        if (plugin.configManager.isTeleportCrossWorldWarning && player.world != world) {
+        if (plugin.configManager.isTeleportCrossWorldWarning && player.world != safeLocation.world) {
             player.sendMessage(plugin.configManager.getMessage("tp-cross-world-warning",
                 "{region}", parsed.getCompositeKey(),
-                "{world}", world.name))
+                "{world}", safeLocation.world.name))
         }
 
         // Perform teleport

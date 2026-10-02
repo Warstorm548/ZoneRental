@@ -6,8 +6,9 @@ Every rental, sign, override, group entry and snapshot is keyed by **`world:regi
 
 | Context | World |
 |---|---|
-| Clicking a sign | The clicking player's world (the same world the sign is in) |
-| `/zrcreatesign <region>` | The world of the targeted sign (the player's world) |
+| Clicking a sign | The region's world stored for that sign (`world:region` key), which can differ from the sign's and the player's world |
+| `/zrcreatesign <region>` | The player's world; `/zrcreatesign world:region` registers a sign for a region in another world |
+| `/zrtp <region>` | Teleports to the region's oldest sign, in whatever world that sign is |
 | Commands with `<region>` | The player's world, unless written as `world:region` |
 | Console commands | Must use `world:region` |
 | `/zrgroup` region lists | `region` = player's world; `world:region` = explicit |
@@ -24,5 +25,5 @@ On load, entries without a world are given the server's **first** world (`server
 | File | Behaviour |
 |---|---|
 | `rentals.yml` | Entries without `world:` get the first world. The re-save is skipped when nothing else has changed, so the conversion is written on the next normal save. |
-| `signs.yml` | Old `region:` keys become `<sign's world>:region`. |
+| `signs.yml` | Old `region:` keys become `<sign's world>:region`. Each sign keeps its own `world` field, so a sign can live in a different world from its region. |
 | `regions.yml` | Old `region:` keys become `<first world>:region`. |

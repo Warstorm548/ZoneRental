@@ -4,14 +4,14 @@ Guidance for Claude Code (claude.ai/code) in this repository. This file is an **
 
 ## Project
 
-**ZoneRental** is a Paper 1.21+ plugin for renting WorldGuard regions through clickable signs. It uses Vault for payments, time-based expiry, WorldEdit snapshots to restore regions, and item storage with a retrieval GUI. Current version: **3.2.0** (`build.gradle.kts`).
+**ZoneRental** is a Paper 1.21+ plugin for renting WorldGuard regions through clickable signs. It uses Vault for payments, time-based expiry, WorldEdit snapshots to restore regions, and item storage with a retrieval GUI. Current version: **3.3.0** (`build.gradle.kts`).
 
 ## Tech stack
 
 | Area | Technology | Version | Scope |
 |---|---|---|---|
 | Language | Java (OpenJDK) | 21 (toolchain + `release 21`) | Main class + 2 listeners |
-| Language | Kotlin (JVM) | 2.2.20 | Everything else (48 files) |
+| Language | Kotlin (JVM) | 2.2.20 | Everything else (51 files) |
 | Build | Gradle (Kotlin DSL, wrapper) | 9.2.0 | |
 | Build | Shadow plugin (`com.gradleup.shadow`) | 9.2.2 | Shades and relocates Kotlin, coroutines, MCCoroutine |
 | Server API | Paper API | 1.21.3-R0.1-SNAPSHOT | compileOnly; `api-version: '1.21'` |
@@ -95,7 +95,7 @@ Guidance for Claude Code (claude.ai/code) in this repository. This file is an **
 
 ## Versioning (SemVer)
 
-Bump in `build.gradle.kts` (line 7), `src/main/resources/plugin.yml` (line 2), `README.md` (version line), and add a `CHANGELOG.md` section. See [building.md](docs/development/building.md#versioning-semver).
+Bump in `build.gradle.kts` (line 8), `src/main/resources/plugin.yml` (line 2), `README.md` (version line), and add a `CHANGELOG.md` section. See [building.md](docs/development/building.md#versioning-semver).
 
 ## Keeping docs in sync
 

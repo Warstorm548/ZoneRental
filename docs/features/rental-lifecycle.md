@@ -11,9 +11,11 @@
 | Shift + right-click | rented, yours | [Extend](#extension) |
 | Shift + right-click | rented, not yours / available | Error message |
 
-The region is looked up in the **clicking player's world**.
+The region is looked up in the **region's world** from the sign's `world:region` key, so a sign in a lobby world rents a region elsewhere.
 
-Sign protection (`signs.protect-signs`): breaking a registered sign, or its recorded support block, is cancelled unless the player has `zonerental.admin.breaksign`. Only `BlockBreakEvent` is handled. Explosions, pistons and other physics aren't.
+A rental space can have several signs. They are redrawn together: any change marks the space for redraw, and every one of its signs is updated in the next pass.
+
+Sign protection (`signs.protect-signs`): breaking a registered sign, or its recorded support block, is cancelled unless the player has `zonerental.admin.breaksign`. When such a break goes through, the affected signs are dropped from `signs.yml` immediately. Environment protection (`signs.environment-protection`, `SignProtectionListener`) keeps explosions, pistons, fire, endermen, withers, falling blocks, leaf decay and fading blocks away from signs and support blocks.
 
 ## Creation
 
@@ -57,7 +59,7 @@ The rental stays in memory until step 5, and nothing stops a later check from st
 | Command | Path | Refund |
 |---|---|---|
 | `/zrreset` | `RentalManager.resetRentalWithRefund` → synchronous `expireRental` (same steps as above) | `totalPaid - totalRefunded` |
-| `/zrremove` | as `/zrreset`, then removes the sign, support block record, snapshot, group membership and overrides | same |
+| `/zrremove all <world:region>` | as `/zrreset`, then breaks every sign, restores their support blocks, unregisters the rental space and removes the snapshot, group membership and overrides | same |
 
 See [Refunds](refunds.md).
 
@@ -74,3 +76,7 @@ All run on the main thread (`ZoneRental.startTasks`):
 | Teleport cooldown cleanup | 10 min |
 
 Sign text is only redrawn when the rental state or overrides change. Placeholders like `{days}`/`{hours}` on a rented sign don't count down by themselves.
+
+Standing and hanging signs get the text on both sides; wall signs on the front only.
+
+During a redraw, a sign whose world isn't loaded is skipped. A sign in an unloaded chunk is loaded and redrawn when `signs.load-chunks-for-updates` is `true`, otherwise it is redrawn when its chunk loads. A sign whose block is loaded but isn't a sign any more is checked again on the next pass and dropped from `signs.yml` (with a warning) if it is still missing.
