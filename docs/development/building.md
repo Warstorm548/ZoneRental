@@ -32,7 +32,7 @@ Both suites must pass locally before pushing. Details: [Automated tests](../test
 | Item | Value |
 |---|---|
 | Plugins | `java`, `kotlin("jvm") 2.2.20`, `com.gradleup.shadow 9.2.2` |
-| Group / version | `com.zonerental` / `version = "…"` (line 7) |
+| Group / version | `com.zonerental` / `version = "…"` (line 8) |
 | `compileOnly` | `paper-api:1.21.3-R0.1-SNAPSHOT`, `VaultAPI:1.7`, `worldguard-bukkit:7.0.14`, `worldedit-bukkit` + `worldedit-core:7.3.16`, `luckperms api:5.4` (declared but unused in code) |
 | `implementation` (shaded) | Kotlin stdlib, `mccoroutine-bukkit-api` / `-core:2.21.0`, `kotlinx-coroutines-core:1.9.0` |
 | Relocations | `kotlin` → `com.zonerental.shaded.kotlin`, `kotlinx.coroutines` → `com.zonerental.shaded.kotlinx.coroutines`, `com.github.shynixn.mccoroutine` → `com.zonerental.shaded.mccoroutine` |

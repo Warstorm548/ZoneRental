@@ -6,7 +6,7 @@ All files live in `plugins/ZoneRental/`. Keys use the composite format **`world:
 |---|---|---|---|
 | `config.yml` | `ConfigManager` | Settings ([reference](config-reference.md)) | Never written, except once to remove a migrated `regions:` section |
 | `rentals.yml` | `RentalManager` | Active rentals | Autosave (5 min, only if changed) + shutdown |
-| `signs.yml` | `SignsConfig` | Sign + support-block locations | Autosave + shutdown |
+| `signs.yml` | `SignsConfig` | Registered rental spaces, their signs and support blocks | Immediately after `/zrcreate`, `/zrcreatesign`, `/zrremove` and sign removals; autosave + shutdown for the rest |
 | `regions.yml` | `RegionsConfig` | Region and group overrides | Autosave + shutdown |
 | `groups.yml` | `GroupsConfig` | Group membership | Autosave + shutdown |
 | `storage.yml` | `StorageConfig` | Items from ended rentals | Autosave + shutdown |
@@ -44,20 +44,33 @@ Entries with no `world` field (single-world format) are assigned the server's fi
 
 ```yaml
 signs:
-  world:shop1:
-    world: world
-    x: 100
-    y: 64
-    z: 200
-    support-block:
+  world:shop1:            # rental space: the REGION's world and name
+    next-id: 3            # ID for the next sign; IDs are never reused
+    '1':                  # sign ID (per region, starting at 1)
+      world: lobby        # the world the SIGN is in (can differ from the region's)
       x: 100
       y: 64
-      z: 201
-      original-type: STONE_BRICKS
-      original-data: minecraft:stone_bricks
+      z: 200
+      support-block:
+        x: 100
+        y: 64
+        z: 201
+        original-type: STONE_BRICKS
+        original-data: minecraft:stone_bricks
+    '2':
+      world: world
+      x: 140
+      y: 65
+      z: 210
+  world:shop2:            # registered with /zrcreate, no signs yet
+    next-id: 1
 ```
 
-Only one sign per region. Old entries keyed by region name only are migrated to `world:region` using their `world` field.
+Every entry under `signs:` is a registered rental space; a space can have zero or more signs, up to `signs.max-per-region`. Use the sign IDs with `/zrremove <world:region> <id>`.
+
+**Migration (3.3.0).** On first load, a file in the old one-sign-per-region layout (`x`/`y`/`z` directly under the region) is converted: the existing sign becomes `'1'` and `next-id` is set to `2`. The original file is first copied to `signs.yml.pre-3.3.0.bak`. Older plugin versions can't read the new layout, so restore that backup if you downgrade. Entries keyed by region name only (pre-multi-world) are still migrated to `world:region` using their `world` field. Rented regions with no entry are registered on startup.
+
+**Automatic cleanup.** If a sign's block is loaded and is no longer a sign on two update passes in a row, the sign is dropped from the file and a warning is logged with its region, ID and coordinates. Signs in unloaded worlds or chunks are never dropped. The rental space stays registered.
 
 ## regions.yml
 

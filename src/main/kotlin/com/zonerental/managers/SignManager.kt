@@ -2,23 +2,51 @@ package com.zonerental.managers
 
 import com.zonerental.ZoneRental
 import com.zonerental.extensions.toComponent
-import com.zonerental.util.WorldRegionParser
+import com.zonerental.models.RentalSign
+import net.kyori.adventure.text.Component
+import org.bukkit.Chunk
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
 import org.bukkit.block.Sign
+import org.bukkit.block.data.type.HangingSign
+import org.bukkit.block.data.type.WallHangingSign
 import org.bukkit.block.data.type.WallSign
+import org.bukkit.block.sign.Side
 
 /**
- * Manages rental signs for regions.
+ * Manages rental signs. A rental space ("world:region") can have several signs, possibly in
+ * other worlds; they are always redrawn together.
  */
 class SignManager(private val plugin: ZoneRental) {
 
-    private val dirtySigns = mutableSetOf<String>() // Track signs that need updates
+    /** Outcome of [createSign]. */
+    sealed interface CreateResult {
+        data class Created(val sign: RentalSign, val newlyRegistered: Boolean, val insideRegions: List<String>) : CreateResult
+        data class AlreadyRegistered(val existing: RentalSign) : CreateResult
+        data class LimitReached(val max: Int) : CreateResult
+        data object NotASign : CreateResult
+    }
+
+    private val dirtySigns = mutableSetOf<String>() // "world:region" keys of spaces whose signs need a redraw
+
+    /** Signs found missing once; removed if still missing on the next check. Keyed by [token]. */
+    private val missingOnce = mutableSetOf<String>()
+
+    /** Signs waiting for their chunk to load (load-chunks-for-updates: false). Keyed by [token]. */
+    private val waitingForChunk = mutableSetOf<String>()
+
+    private fun token(sign: RentalSign) = "${sign.regionKey}#${sign.id}"
 
     fun loadAllSigns() {
+        missingOnce.clear()
+        waitingForChunk.clear()
+
+        // Rentals from before rental spaces were registered must not become orphans
+        registerRentedRegions()
+
         // Migrate existing signs to include support block data
         migrateSupportBlocks()
 
@@ -29,12 +57,23 @@ class SignManager(private val plugin: ZoneRental) {
         updateAllSigns()
     }
 
+    private fun registerRentedRegions() {
+        var registered = 0
+        for (rental in plugin.rentalManager.allRentals) {
+            val world = plugin.server.getWorld(rental.worldName) ?: continue
+            if (plugin.signsConfig.registerRegion(rental.regionName, world)) registered++
+        }
+        if (registered > 0) {
+            plugin.logger.info("Registered $registered rented region(s) that had no rental space entry")
+            plugin.signsConfig.save()
+        }
+    }
+
     /**
      * Marks all signs as dirty for initial update or full refresh.
      */
     private fun markAllSignsDirty() {
-        val signs = plugin.signsConfig.getAllSigns()
-        dirtySigns.addAll(signs.keys)
+        dirtySigns.addAll(plugin.signsConfig.getRegisteredRegions())
     }
 
     /**
@@ -42,51 +81,27 @@ class SignManager(private val plugin: ZoneRental) {
      * This is for backward compatibility with signs created before this feature.
      */
     private fun migrateSupportBlocks() {
-        val signs = plugin.signsConfig.getAllSigns()
         var migratedCount = 0
 
-        for ((compositeKey, signLoc) in signs) {
-            // Parse composite key "world:region"
-            val worldName = WorldRegionParser.extractWorldName(compositeKey)
-            val regionName = WorldRegionParser.extractRegionName(compositeKey)
+        for (sign in plugin.signsConfig.getAllSigns()) {
+            if (sign.support != null) continue
 
-            if (worldName == null || regionName == null) {
-                plugin.logger.warning("Invalid composite key format: $compositeKey")
-                continue
-            }
-
-            val world = plugin.server.getWorld(worldName)
-            if (world == null) {
-                plugin.logger.warning("World not found for sign: $worldName")
-                continue
-            }
-
-            // Skip if support block already exists
-            if (plugin.signsConfig.hasSupportBlock(regionName, world)) {
-                continue
-            }
-
-            val signBlock = signLoc.getBlock()
+            val signLoc = sign.location(plugin.server) ?: continue
+            if (!isChunkReady(signLoc)) continue
+            val signBlock = signLoc.block
 
             if (signBlock.state !is Sign) {
-                plugin.logger.warning("Sign for region $compositeKey no longer exists at location")
+                plugin.logger.warning("Rental sign ${sign.describe()} no longer exists at location")
                 continue
             }
 
-            // Detect support block
             val supportBlock = getSupportBlock(signBlock)
             if (supportBlock != null) {
-                // Store the support block information
-                val supportLoc = supportBlock.location
-                val blockType = supportBlock.type.name
-                val blockData = supportBlock.blockData.asString
-
-                plugin.signsConfig.addSupportBlock(regionName, world, supportLoc, blockType, blockData)
+                plugin.signsConfig.setSupportBlock(sign, supportBlock.location, supportBlock.type.name, supportBlock.blockData.asString)
                 migratedCount++
-
-                plugin.logger.info("Migrated support block for region $compositeKey (Type: $blockType)")
+                plugin.logger.info("Migrated support block for rental sign ${sign.describe()} (Type: ${supportBlock.type.name})")
             } else {
-                plugin.logger.warning("Could not detect support block for existing sign in region $compositeKey")
+                plugin.logger.warning("Could not detect support block for rental sign ${sign.describe()}")
             }
         }
 
@@ -95,146 +110,263 @@ class SignManager(private val plugin: ZoneRental) {
         }
     }
 
-    fun createSign(regionName: String, location: Location) {
-        // Store sign location (addSign uses location's world automatically)
-        plugin.signsConfig.addSign(regionName, location)
+    /**
+     * Registers [signBlock] as a sign of the region (registering the region if needed),
+     * records its support block, clears both sides and draws it. Saves signs.yml.
+     */
+    fun createSign(regionName: String, regionWorld: World, signBlock: Block): CreateResult {
+        if (signBlock.state !is Sign) return CreateResult.NotASign
 
-        // Detect and store support block
-        val signBlock = location.getBlock()
+        plugin.signsConfig.getSignAt(signBlock.location)?.let { return CreateResult.AlreadyRegistered(it) }
+
+        val max = plugin.configManager.maxSignsPerRegion
+        if (max != -1 && plugin.signsConfig.getSignCount(regionName, regionWorld) >= max) {
+            return CreateResult.LimitReached(max)
+        }
+
+        val newlyRegistered = !plugin.signsConfig.isRegistered(regionName, regionWorld)
+        var sign = plugin.signsConfig.addSign(regionName, regionWorld, signBlock.location)
+
         val supportBlock = getSupportBlock(signBlock)
-
         if (supportBlock != null) {
-            // Store the support block information
-            val supportLoc = supportBlock.location
             val blockType = supportBlock.type.name
-            val blockData = supportBlock.blockData.asString
-
-            plugin.signsConfig.addSupportBlock(regionName, location.world, supportLoc, blockType, blockData)
+            sign = plugin.signsConfig.setSupportBlock(sign, supportBlock.location, blockType, supportBlock.blockData.asString) ?: sign
             plugin.logger.info(
-                "Stored support block for region ${location.world.name}:$regionName " +
-                "(Type: $blockType at ${supportLoc.blockX},${supportLoc.blockY},${supportLoc.blockZ})"
+                "Stored support block for rental sign ${sign.describe()} " +
+                "(Type: $blockType at ${supportBlock.x},${supportBlock.y},${supportBlock.z})"
             )
         } else {
-            plugin.logger.warning("Could not detect support block for sign at $location")
+            plugin.logger.warning("Could not detect support block for rental sign ${sign.describe()}")
         }
 
-        // Update the sign
-        updateSign(regionName, location.world)
+        // Start from blank sides so text from an earlier use of this sign doesn't linger
+        (signBlock.state as? Sign)?.let { state ->
+            for (side in Side.entries) {
+                for (line in 0 until 4) state.getSide(side).line(line, Component.empty())
+            }
+            state.update(true)
+        }
 
-        plugin.logger.info("Created rental sign for region ${location.world.name}:$regionName")
+        updateSign(regionName, regionWorld)
+        plugin.signsConfig.save()
+
+        plugin.logger.info("Created rental sign ${sign.describe()}")
+        return CreateResult.Created(sign, newlyRegistered, registeredRegionsContaining(sign))
     }
 
     /**
-     * Gets the support block for a sign (the block it's attached to or placed on).
+     * Registered rental spaces (including the sign's own) whose WorldGuard region contains the
+     * sign or its support block. Those blocks would be overwritten when that region is restored.
+     */
+    private fun registeredRegionsContaining(sign: RentalSign): List<String> {
+        val positions = listOfNotNull(
+            Triple(sign.x, sign.y, sign.z),
+            sign.support?.let { Triple(it.x, it.y, it.z) }
+        )
+        val world = plugin.server.getWorld(sign.signWorld) ?: return emptyList()
+        return plugin.signsConfig.getRegisteredRegions()
+            .filter { it.startsWith("${sign.signWorld}:") }
+            .filter { key ->
+                val region = plugin.worldGuardManager.getRegion(key.substringAfter(":"), world) ?: return@filter false
+                positions.any { (x, y, z) -> region.contains(x, y, z) }
+            }
+    }
+
+    /**
+     * Gets the support block for a sign (the block it's attached to, placed on or hanging from).
      */
     private fun getSupportBlock(signBlock: Block): Block? {
-        val blockData = signBlock.blockData
-
-        // Check if it's a wall sign
-        if (blockData is WallSign) {
-            val facing = blockData.facing
+        return when (val blockData = signBlock.blockData) {
             // Wall signs are attached to the block opposite to their facing direction
-            return signBlock.getRelative(facing.oppositeFace)
+            is WallSign -> signBlock.getRelative(blockData.facing.oppositeFace)
+            // Wall hanging signs hang from a bracket on either side, along the sign's plane
+            is WallHangingSign -> {
+                val right = signBlock.getRelative(rotateClockwise(blockData.facing))
+                val left = signBlock.getRelative(rotateClockwise(blockData.facing).oppositeFace)
+                if (!right.type.isAir) right else if (!left.type.isAir) left else null
+            }
+            // Ceiling hanging signs hang from the block above
+            is HangingSign -> signBlock.getRelative(BlockFace.UP)
+            // Otherwise it's a standing sign - support block is below
+            else -> if (signBlock.type.name.contains("SIGN")) signBlock.getRelative(BlockFace.DOWN) else null
         }
-
-        // Otherwise it's a standing sign - support block is below
-        if (signBlock.type.name.contains("SIGN")) {
-            return signBlock.getRelative(BlockFace.DOWN)
-        }
-
-        return null
     }
 
-    fun removeSign(regionName: String, world: World) {
-        plugin.signsConfig.removeSign(regionName, world)
-        plugin.logger.info("Removed rental sign for region ${world.name}:$regionName")
+    private fun rotateClockwise(face: BlockFace): BlockFace = when (face) {
+        BlockFace.NORTH -> BlockFace.EAST
+        BlockFace.EAST -> BlockFace.SOUTH
+        BlockFace.SOUTH -> BlockFace.WEST
+        BlockFace.WEST -> BlockFace.NORTH
+        else -> face
     }
 
     /**
-     * Completely removes ZoneRental setup from a region.
-     * This includes removing the sign from config and restoring the support block.
-     *
-     * @return true if sign was removed, false if no sign existed
+     * Removes one sign through /zrremove: breaks the sign block and restores its support block
+     * (unless another rental sign still uses it). The rental space stays registered.
      */
-    fun removeRegionSetup(regionName: String, world: World): Boolean {
-        val location = plugin.signsConfig.getSignLocation(regionName, world) ?: return false
+    fun removeSign(sign: RentalSign) {
+        plugin.signsConfig.removeSign(sign.regionKey, sign.id)
+        clearPhysicalSign(sign)
+        plugin.signsConfig.save()
+        plugin.logger.info("Removed rental sign ${sign.describe()}")
+    }
 
-        // Restore the support block if it exists
-        if (plugin.signsConfig.hasSupportBlock(regionName, world)) {
-            val supportLoc = plugin.signsConfig.getSupportBlockLocation(regionName, world)
-            val supportData = plugin.signsConfig.getSupportBlockData(regionName, world)
+    /**
+     * Completely removes ZoneRental setup from a region: every sign (block broken, support
+     * blocks restored) and the registration itself. Saves signs.yml.
+     *
+     * @return the number of signs removed, or -1 if the region was not registered
+     */
+    fun removeRegionSetup(regionName: String, world: World): Int {
+        if (!plugin.signsConfig.isRegistered(regionName, world)) return -1
 
-            if (supportLoc != null && supportData != null) {
+        val removed = plugin.signsConfig.unregisterRegion(regionName, world)
+        removed.forEach(::clearPhysicalSign)
+        plugin.signsConfig.save()
+        dirtySigns.remove("${world.name}:$regionName")
+
+        plugin.logger.info("Removed ZoneRental setup from region ${world.name}:$regionName (${removed.size} sign(s))")
+        return removed.size
+    }
+
+    /** Breaks a removed sign's block and restores its support block if no other rental sign uses it. */
+    private fun clearPhysicalSign(sign: RentalSign) {
+        forget(sign)
+        val signLoc = sign.location(plugin.server) ?: return
+
+        val block = signLoc.block
+        if (block.state is Sign) {
+            block.type = Material.AIR
+        }
+
+        val support = sign.support ?: return
+        val supportLoc = sign.supportLocation(plugin.server) ?: return
+        if (plugin.signsConfig.getSignsOnSupportBlock(supportLoc).isNotEmpty()) return // still holds another sign
+
+        try {
+            val supportBlock = supportLoc.block
+            supportBlock.type = Material.valueOf(support.originalType)
+            if (support.originalData.isNotEmpty()) {
                 try {
-                    val supportBlock = supportLoc.getBlock()
-                    val originalType = Material.valueOf(supportData["type"] ?: "")
-                    val originalData = supportData["data"]
-
-                    // Restore the block type
-                    supportBlock.type = originalType
-
-                    // Restore the block data if it exists
-                    if (!originalData.isNullOrEmpty()) {
-                        try {
-                            val blockData = plugin.server.createBlockData(originalData)
-                            supportBlock.blockData = blockData
-                        } catch (e: IllegalArgumentException) {
-                            plugin.logger.warning("Could not restore block data for support block: ${e.message}")
-                        }
-                    }
-
-                    plugin.logger.info(
-                        "Restored support block for region ${world.name}:$regionName to ${originalType.name}"
-                    )
+                    supportBlock.blockData = plugin.server.createBlockData(support.originalData)
                 } catch (e: IllegalArgumentException) {
-                    plugin.logger.warning(
-                        "Could not restore support block for region ${world.name}:$regionName: " +
-                        "Invalid material type - ${e.message}"
-                    )
+                    plugin.logger.warning("Could not restore block data for support block: ${e.message}")
                 }
             }
-        } else {
-            // No support block data - manually break the sign
-            val block = location.getBlock()
-            if (block.state is Sign) {
-                block.type = Material.AIR
-            }
+            plugin.logger.info("Restored support block for rental sign ${sign.describe()} to ${support.originalType}")
+        } catch (e: IllegalArgumentException) {
+            plugin.logger.warning(
+                "Could not restore support block for rental sign ${sign.describe()}: " +
+                "Invalid material type - ${e.message}"
+            )
         }
-
-        // Remove from config (this removes both sign and support block data)
-        plugin.signsConfig.removeSign(regionName, world)
-        plugin.logger.info("Removed ZoneRental setup from region ${world.name}:$regionName")
-
-        return true
     }
 
-    fun updateSign(regionName: String, world: World) {
-        val location = plugin.signsConfig.getSignLocation(regionName, world) ?: return
+    /**
+     * A rental sign at [location] was broken by an admin (zonerental.admin.breaksign).
+     * Drops it from signs.yml; the rental space stays registered.
+     */
+    fun onSignBroken(location: Location, breakerName: String) {
+        val sign = plugin.signsConfig.getSignAt(location) ?: return
+        dropSign(sign, "broken by $breakerName")
+    }
 
-        val block = location.getBlock()
-
-        // Check if block is a sign
-        val sign = block.state as? Sign
-        if (sign == null) {
-            plugin.logger.warning("Sign location for ${world.name}:$regionName is not a sign!")
-            return
+    /**
+     * The support block at [location] was broken by an admin. Every sign on it pops off,
+     * so they are dropped from signs.yml.
+     */
+    fun onSupportBlockBroken(location: Location, breakerName: String) {
+        plugin.signsConfig.getSignsOnSupportBlock(location).forEach {
+            dropSign(it, "support block broken by $breakerName")
         }
+    }
+
+    /** Removes a sign entry without touching any blocks, logs why, and saves. */
+    private fun dropSign(sign: RentalSign, reason: String) {
+        plugin.signsConfig.removeSign(sign.regionKey, sign.id)
+        forget(sign)
+        plugin.signsConfig.save()
+        plugin.logger.warning("Removed rental sign ${sign.describe()} from signs.yml: $reason")
+        if (plugin.signsConfig.getSigns(sign.regionKey).isEmpty()) {
+            plugin.logger.warning("Rental space ${sign.regionKey} has no signs left (still registered)")
+        }
+    }
+
+    private fun forget(sign: RentalSign) {
+        missingOnce.remove(token(sign))
+        waitingForChunk.remove(token(sign))
+    }
+
+    /**
+     * Redraws every sign of a rental space. Prices, durations and the rental are looked up in
+     * the region's [world]; the signs themselves may be in any world.
+     */
+    fun updateSign(regionName: String, world: World) {
+        val signs = plugin.signsConfig.getSigns(regionName, world)
+        if (signs.isEmpty()) return
 
         val rental = plugin.rentalManager.getRental(regionName, world)
-
-        if (rental == null) {
-            // Region is available
-            updateAvailableSign(sign, regionName)
-        } else {
-            // Region is rented
-            updateRentedSign(sign, rental)
-        }
-
-        sign.update(true)
+        val lines = if (rental == null) availableLines(regionName, world) else rentedLines(rental)
+        signs.forEach { drawSign(it, lines) }
     }
 
-    private fun updateAvailableSign(sign: Sign, regionName: String) {
-        val world = sign.world
+    private fun drawSign(sign: RentalSign, lines: List<Component>?) {
+        val location = sign.location(plugin.server) ?: return // sign's world not loaded: keep and retry later
+
+        if (!isChunkReady(location)) {
+            waitingForChunk += token(sign)
+            return
+        }
+        waitingForChunk -= token(sign)
+
+        val block = location.block
+        val state = block.state as? Sign
+        if (state == null) {
+            handleMissingSign(sign)
+            return
+        }
+        missingOnce -= token(sign)
+
+        if (lines == null) return
+        val sides = if (block.blockData is WallSign) listOf(Side.FRONT) else listOf(Side.FRONT, Side.BACK)
+        for (side in sides) {
+            val signSide = state.getSide(side)
+            for (line in 0 until 4) {
+                signSide.line(line, lines.getOrElse(line) { Component.empty() })
+            }
+        }
+        state.update(true)
+    }
+
+    /** True if the sign's chunk is loaded, or may be loaded (signs.load-chunks-for-updates). */
+    private fun isChunkReady(location: Location): Boolean =
+        plugin.configManager.isLoadChunksForSignUpdates ||
+            location.world.isChunkLoaded(location.blockX shr 4, location.blockZ shr 4)
+
+    /**
+     * The sign's block is loaded but isn't a sign. The first time, check again on the next
+     * update pass (a region restore may be replacing it); the second time, drop the entry.
+     */
+    private fun handleMissingSign(sign: RentalSign) {
+        if (missingOnce.add(token(sign))) {
+            plugin.logger.warning("Rental sign ${sign.describe()} is not a sign! Checking again on the next update")
+            dirtySigns += sign.regionKey
+            return
+        }
+        dropSign(sign, "the block is no longer a sign")
+    }
+
+    /** Redraws signs that were waiting for this chunk to load. */
+    fun onChunkLoad(chunk: Chunk) {
+        val waiting = plugin.signsConfig.getSignsInChunk(chunk.world.name, chunk.x, chunk.z)
+            .filter { token(it) in waitingForChunk }
+        if (waiting.isEmpty()) return
+        dirtySigns.addAll(waiting.map { it.regionKey })
+        // Next tick: don't edit block states while the chunk is still being loaded
+        plugin.server.scheduler.runTask(plugin, Runnable { updateAllSigns() })
+    }
+
+    private fun availableLines(regionName: String, world: World): List<Component>? {
         val price = plugin.configManager.getPriceForRegion(regionName, world)
         val duration = plugin.configManager.getDurationForRegion(regionName, world)
         val formattedPrice = String.format(plugin.configManager.currencyFormat, price)
@@ -244,45 +376,35 @@ class SignManager(private val plugin: ZoneRental) {
         // Null/empty check to prevent NPE
         if (formatList.isNullOrEmpty()) {
             plugin.logger.warning("Available sign format is null or empty for region $regionName")
-            return
+            return null
         }
 
-        var line = 0
-        for (format in formatList) {
-            if (line >= 4) break
-
-            val text = format
+        return formatList.take(4).map { format ->
+            format
                 .replace("{region}", regionName)
                 .replace("{price}", formattedPrice)
                 .replace("{duration}", duration.toString())
-
-            sign.line(line, text.toComponent())
-            line++
+                .toComponent()
         }
     }
 
-    private fun updateRentedSign(sign: Sign, rental: Rental) {
+    private fun rentedLines(rental: Rental): List<Component>? {
         val formatList = plugin.configManager.rentedSignFormat
 
         // Null/empty check to prevent NPE
         if (formatList.isNullOrEmpty()) {
             plugin.logger.warning("Rented sign format is null or empty for region ${rental.regionName}")
-            return
+            return null
         }
 
-        var line = 0
-        for (format in formatList) {
-            if (line >= 4) break
-
-            val text = format
+        return formatList.take(4).map { format ->
+            format
                 .replace("{region}", rental.regionName)
                 .replace("{owner}", rental.playerName)
                 .replace("{expires}", rental.formattedEndDate)
                 .replace("{days}", rental.daysRemaining.toString())
                 .replace("{hours}", rental.hoursRemaining.toString())
-
-            sign.line(line, text.toComponent())
-            line++
+                .toComponent()
         }
     }
 
@@ -312,27 +434,24 @@ class SignManager(private val plugin: ZoneRental) {
             return // Nothing to update
         }
 
-        val allSigns = plugin.signsConfig.getAllSigns()
-
-        // Update only dirty signs
-        for (compositeKey in dirtySigns) {
-            val location = allSigns[compositeKey] ?: continue // Sign was removed
-
-            // Parse composite key "world:region"
-            val regionName = WorldRegionParser.extractRegionName(compositeKey) ?: continue
-            val world = location.world ?: continue
-
-            updateSign(regionName, world)
-        }
-
-        // Clear dirty set after updating
+        // Take a snapshot: drawing can mark spaces dirty again for the next pass
+        val batch = dirtySigns.toList()
         dirtySigns.clear()
+
+        for (compositeKey in batch) {
+            if (!plugin.signsConfig.isRegistered(compositeKey)) continue // Space was removed
+            val world = plugin.server.getWorld(compositeKey.substringBefore(":")) ?: continue
+            updateSign(compositeKey.substringAfter(":"), world)
+        }
     }
 
     fun isRentalSign(location: Location): Boolean {
-        return plugin.signsConfig.getRegionByLocation(location) != null
+        return plugin.signsConfig.getSignAt(location) != null
     }
 
+    /**
+     * @return Composite key "world:region" of the rental space this sign belongs to, or null
+     */
     fun getRegionFromSign(location: Location): String? {
         return plugin.signsConfig.getRegionByLocation(location)
     }

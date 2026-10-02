@@ -6,16 +6,19 @@ A walkthrough of the basic admin and player workflow. Commands assume the defaul
 
 1. Stand in the world where the rental should be.
 2. Define a WorldGuard region: `/rg define shop1`
-3. Place a sign (wall or standing) and look at it.
+3. Place a sign (wall, standing or hanging) and look at it.
 4. Run `/zrcreatesign shop1`.
-   - The sign is stored in `signs.yml` under `world:shop1` (the world is the one the sign is in).
-   - The block the sign hangs on (wall sign) or stands on (standing sign) is recorded as its **support block** and protected.
+   - The region is registered as a **rental space** under `world:shop1` in `signs.yml` (if it wasn't already), and the sign is stored under it as sign `#1`.
+   - The block the sign hangs on, stands on or hangs from is recorded as its **support block** and protected.
    - The sign shows the `signs.available-format` lines with the region's price and duration.
+   - To place the sign in another world (for example a lobby), run `/zrcreatesign world:shop1` there.
 5. Optional: give the region its own price or duration with `/zroverride price world:shop1 500` (see [Overrides & groups](../features/overrides-and-groups.md)).
 
-Only one sign per region is tracked. Running `/zrcreatesign` again for the same region moves the registration to the new sign.
+A region can have several signs (3 by default, `signs.max-per-region`). Run `/zrcreatesign shop1` on each one; they get IDs `#2`, `#3`, … and always show the same text. Remove one with `/zrremove` while looking at it, or `/zrremove world:shop1 <id>`.
 
-Use the region name in the same case WorldGuard shows it (lower case). The plugin stores what you type, and mixed case can cause lookup mismatches; see [Known issues](../reference/known-issues.md).
+You can also register the rental space first with `/zrcreate world:shop1` and add signs later; nobody can rent it until it has a sign.
+
+`/zrcreate` and `/zrcreatesign` store the region name the way WorldGuard has it, so `Shop1` and `shop1` are the same rental space.
 
 ## 2. Rent (player)
 

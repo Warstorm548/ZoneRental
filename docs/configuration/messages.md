@@ -41,7 +41,11 @@ Only the placeholders listed here are filled in. Any other `{...}` in your text 
 | `max-extensions-reached` | **none**: the default text's `{current}/{max}` is shown literally |
 | `items-stored` | `{region}`, `{count}` |
 | `items-retrieved`, `no-stored-items` | — |
-| `sign-created` | `{region}` |
+| `sign-created`, `sign-removed`, `sign-already-registered` | `{id}`, `{region}` |
+| `sign-not-found` | `{region}`, `{id}` |
+| `sign-limit-reached` | `{region}`, `{max}` |
+| `sign-not-rental` | — |
+| `region-registered`, `region-already-registered`, `region-not-registered` | `{region}` |
 | `sign-protected`, `sign-support-protected` | — |
 | `admin-reset-success` | `{region}`, `{player}`, `{amount}` |
 | `rental-reset-refund` | `{region}`, `{amount}` |
@@ -69,4 +73,4 @@ Only the placeholders listed here are filled in. Any other `{...}` in your text 
 
 ## Keys in config.yml that nothing reads
 
-`region-not-setup`, `invalid-region-format`, `region-not-found-in-world`, `already-rented`, `not-your-rental`, `economy-disabled`, `refund-given`, `cooldown-active`, `extension-too-early`, `extension-disabled`, `duration-added`, `duration-removed`, `duration-set`, `duration-invalid`, `duration-too-short`, `refund-already-given`, `refund-partial`, `items-stored-pages`, `storage-expired`, `sign-removed`, `sign-not-rental`, `rental-reset`, `rental-info`, `aliases-enabled`, `aliases-disabled`, `help-header`, `help-footer`.
+`region-not-setup`, `invalid-region-format`, `region-not-found-in-world`, `already-rented`, `not-your-rental`, `economy-disabled`, `refund-given`, `cooldown-active`, `extension-too-early`, `extension-disabled`, `duration-added`, `duration-removed`, `duration-set`, `duration-invalid`, `duration-too-short`, `refund-already-given`, `refund-partial`, `items-stored-pages`, `storage-expired`, `rental-reset`, `rental-info`, `aliases-enabled`, `aliases-disabled`, `help-header`, `help-footer`.

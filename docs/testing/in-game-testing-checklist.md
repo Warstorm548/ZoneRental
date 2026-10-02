@@ -76,8 +76,35 @@ Basic functionality verification:
 ### Support Block Protection
 - [ ] Wall sign: Block behind sign is protected
 - [ ] Standing sign: Block below sign is protected
+- [ ] Ceiling hanging sign: Block above sign is protected
+- [ ] Wall hanging sign: the block it hangs from is protected
 - [ ] Support block cannot be broken by players
-- [ ] Support block restored on `/zrremove` (sign block stays in place)
+- [ ] Admin breaking a sign or support block removes those signs from `signs.yml` (console warning)
+
+### Environment Protection (`signs.environment-protection`)
+- [ ] Creeper and TNT next to a sign leave the sign and support block intact
+- [ ] Bed / respawn anchor explosion leaves them intact
+- [ ] Piston can't push or pull a support block, or push a block into a sign
+- [ ] Fire doesn't burn a wooden support block
+- [ ] Sand/gravel support block doesn't fall
+- [ ] With the setting `false`, explosions destroy signs again
+
+### Multiple Signs
+- [ ] Three `/zrcreatesign shop1` on different signs get IDs #1, #2, #3 in `signs.yml`
+- [ ] A 4th sign is refused (default limit 3); `max-per-region: -1` allows it
+- [ ] Running `/zrcreatesign` on an already registered sign is refused
+- [ ] Rent / extend / expire / override changes update every sign within 30 s
+- [ ] Standing and hanging signs show text on both sides; wall signs on the front
+- [ ] `/zrremove` while looking at sign #2 removes only that sign (breaks it, restores support block)
+- [ ] `/zrremove world:shop1 3` removes sign #3; the next new sign gets #4
+- [ ] Removing the last sign keeps the rental space; `/zrverify` lists it as having no signs
+- [ ] `/zrremove world:shop1` alone only shows usage
+- [ ] `/zrremove all world:shop1` removes every sign, restores support blocks and unregisters the space
+- [ ] `/zrcreate world:shop2` registers without a sign; `/zrcreatesign shop2` adds #1
+- [ ] Destroying a sign with WorldEdit: it's dropped from `signs.yml` after the second redraw, with a warning
+- [ ] `load-chunks-for-updates: false`: a sign in an unloaded chunk updates when the chunk loads
+- [ ] `/zrreload` right after `/zrcreatesign` keeps the new sign
+- [ ] Old single-sign `signs.yml` migrates to sign #1 and writes `signs.yml.pre-3.3.0.bak`
 
 ### Sign Updates
 - [ ] Sign updates when rental status changes
@@ -271,7 +298,9 @@ Basic functionality verification:
 ## Multi-World Support
 
 ### Cross-World Regions
-- [ ] Create rental sign in different world
+- [ ] `/zrcreatesign world:shop1` in another world (lobby) creates a sign for the region in `world`
+- [ ] Clicking the lobby sign rents `world:shop1` and shows its price
+- [ ] `/zrtp shop1` goes to the oldest sign, even in another world
 - [ ] Same region name in different worlds works
 - [ ] World prefix format: `world:region`
 
@@ -297,11 +326,11 @@ Basic functionality verification:
 - [ ] Rental setup preserved (sign, schematic)
 
 ### Remove Command
-- [ ] `/zrremove <region>` removes setup
+- [ ] `/zrremove all <world:region>` removes setup
 - [ ] Refund issued (if rented)
-- [ ] Sign config removed
+- [ ] Every sign broken and removed from `signs.yml`, rental space unregistered
 - [ ] Region removed from its group
-- [ ] Support block restored
+- [ ] Support blocks restored
 - [ ] Schematic deleted
 
 ### Duration Command

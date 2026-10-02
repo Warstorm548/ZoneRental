@@ -101,9 +101,10 @@ class RRCommand(private val plugin: ZoneRental) : CommandExecutor, TabCompleter 
                 // Page 2: Admin Commands Part 1
                 sender.sendMiniMessage("<gold>Admin Commands (Part 1):")
                 sender.sendMiniMessage("<yellow>/${prefix}reload<gray> - Reload plugin configuration")
-                sender.sendMiniMessage("<yellow>/${prefix}createsign<gray> - Create a rental sign for a region")
+                sender.sendMiniMessage("<yellow>/${prefix}create<gray> - Register a region as a rental space")
+                sender.sendMiniMessage("<yellow>/${prefix}createsign<gray> - Add a rental sign to a region")
                 sender.sendMiniMessage("<yellow>/${prefix}reset<gray> - Reset a rental with full refund")
-                sender.sendMiniMessage("<yellow>/${prefix}remove<gray> - Completely remove rental setup from region")
+                sender.sendMiniMessage("<yellow>/${prefix}remove<gray> - Remove a rental sign, or all setup from a region")
             }
 
             3 -> {
@@ -236,24 +237,49 @@ class RRCommand(private val plugin: ZoneRental) : CommandExecutor, TabCompleter 
                 sender.sendMiniMessage("<gray>  - Active rentals are not affected")
             }
 
+            "create" -> {
+                if (!sender.hasPermission("zonerental.admin.create")) {
+                    sender.sendMiniMessage("<red>You don't have permission to view this command's help.")
+                    return
+                }
+                sender.sendMiniMessage("<yellow>Command: <white>/${prefix}create")
+                sender.sendMiniMessage("<gray>Register a WorldGuard region as a rental space without placing a sign.")
+                sender.sendMiniMessage("")
+                sender.sendMiniMessage("<aqua>Syntax:")
+                sender.sendMiniMessage("<white>  /${prefix}create <world:region>")
+                sender.sendMiniMessage("")
+                sender.sendMiniMessage("<aqua>Permission: <white>zonerental.admin.create")
+                sender.sendMiniMessage("")
+                sender.sendMiniMessage("<aqua>Examples:")
+                sender.sendMiniMessage("<green>  /${prefix}create world:shop1<gray> - Register shop1 as a rental space")
+                sender.sendMiniMessage("")
+                sender.sendMiniMessage("<aqua>Notes:")
+                sender.sendMiniMessage("<gray>  - Players rent through signs: add one with /${prefix}createsign")
+                sender.sendMiniMessage("<gray>  - /${prefix}createsign registers the region automatically if needed")
+            }
+
             "createsign" -> {
                 if (!sender.hasPermission("zonerental.admin.createsign")) {
                     sender.sendMiniMessage("<red>You don't have permission to view this command's help.")
                     return
                 }
                 sender.sendMiniMessage("<yellow>Command: <white>/${prefix}createsign")
-                sender.sendMiniMessage("<gray>Create a rental sign on the block you're looking at.")
+                sender.sendMiniMessage("<gray>Turn the sign you're looking at into a rental sign for a region.")
                 sender.sendMiniMessage("")
                 sender.sendMiniMessage("<aqua>Syntax:")
                 sender.sendMiniMessage("<white>  /${prefix}createsign <region>")
+                sender.sendMiniMessage("<white>  /${prefix}createsign <world:region>")
                 sender.sendMiniMessage("")
                 sender.sendMiniMessage("<aqua>Permission: <white>zonerental.admin.createsign")
                 sender.sendMiniMessage("")
                 sender.sendMiniMessage("<aqua>Examples:")
-                sender.sendMiniMessage("<green>  /${prefix}createsign shop1<gray> - Create rental sign for shop1")
+                sender.sendMiniMessage("<green>  /${prefix}createsign shop1<gray> - Sign for shop1 in your world")
+                sender.sendMiniMessage("<green>  /${prefix}createsign world:shop1<gray> - Sign here for shop1 in 'world'")
                 sender.sendMiniMessage("")
                 sender.sendMiniMessage("<aqua>Notes:")
                 sender.sendMiniMessage("<gray>  - Look at an existing sign block before running")
+                sender.sendMiniMessage("<gray>  - A region can have several signs (signs.max-per-region), in any world")
+                sender.sendMiniMessage("<gray>  - Each sign gets an ID (#1, #2...) shown in signs.yml")
                 sender.sendMiniMessage("<gray>  - Sign will use default settings until overrides are set")
                 sender.sendMiniMessage("<gray>  - Support block is automatically protected")
             }
@@ -287,22 +313,25 @@ class RRCommand(private val plugin: ZoneRental) : CommandExecutor, TabCompleter 
                     return
                 }
                 sender.sendMiniMessage("<yellow>Command: <white>/${prefix}remove")
-                sender.sendMiniMessage("<gray>Completely remove ZoneRental setup from a region.")
+                sender.sendMiniMessage("<gray>Remove one rental sign, or all ZoneRental setup from a region.")
                 sender.sendMiniMessage("")
                 sender.sendMiniMessage("<aqua>Syntax:")
-                sender.sendMiniMessage("<white>  /${prefix}remove <region>")
+                sender.sendMiniMessage("<white>  /${prefix}remove<gray> (looking at a rental sign)")
+                sender.sendMiniMessage("<white>  /${prefix}remove <world:region> <id>")
+                sender.sendMiniMessage("<white>  /${prefix}remove all <world:region>")
                 sender.sendMiniMessage("")
                 sender.sendMiniMessage("<aqua>Permission: <white>zonerental.admin.remove")
                 sender.sendMiniMessage("")
                 sender.sendMiniMessage("<aqua>Examples:")
-                sender.sendMiniMessage("<green>  /${prefix}remove shop1<gray> - Remove rental setup from shop1")
+                sender.sendMiniMessage("<green>  /${prefix}remove world:shop1 2<gray> - Remove sign #2 of shop1")
+                sender.sendMiniMessage("<green>  /${prefix}remove all world:shop1<gray> - Remove all setup from shop1")
                 sender.sendMiniMessage("")
                 sender.sendMiniMessage("<aqua>Notes:")
-                sender.sendMiniMessage("<gray>  - Resets active rental with full refund")
-                sender.sendMiniMessage("<gray>  - Removes sign configuration and restores support block")
-                sender.sendMiniMessage("<gray>  - Deletes WorldEdit schematic")
-                sender.sendMiniMessage("<gray>  - Removes region from regions.yml")
-                sender.sendMiniMessage("<gray>  - Use this to completely repurpose a region")
+                sender.sendMiniMessage("<gray>  - Removing a sign keeps the rental space and any rental")
+                sender.sendMiniMessage("<gray>  - 'all' resets an active rental with full refund")
+                sender.sendMiniMessage("<gray>  - 'all' removes every sign and restores support blocks")
+                sender.sendMiniMessage("<gray>  - 'all' deletes the WorldEdit schematic and regions.yml entry")
+                sender.sendMiniMessage("<gray>  - Use 'all' to completely repurpose a region")
             }
 
             "duration" -> {

@@ -22,6 +22,7 @@ abstract class CommandTestSupport : MockPluginTest() {
     protected lateinit var rentalManager: RentalManager
     protected lateinit var worldGuard: WorldGuardManager
     protected lateinit var signManager: SignManager
+    protected lateinit var signs: com.zonerental.config.SignsConfig
     protected val command: Command = mockk(relaxed = true)
 
     protected fun wireCommandDependencies() {
@@ -45,10 +46,11 @@ abstract class CommandTestSupport : MockPluginTest() {
         every { plugin.worldGuardManager } returns worldGuard
 
         signManager = mockk(relaxed = true)
-        every { signManager.removeRegionSetup(any(), any()) } returns false
+        every { signManager.removeRegionSetup(any(), any()) } returns -1
         every { plugin.signManager } returns signManager
 
-        every { plugin.signsConfig } returns com.zonerental.config.SignsConfig(plugin)
+        signs = com.zonerental.config.SignsConfig(plugin)
+        every { plugin.signsConfig } returns signs
         every { plugin.worldEditManager.hasCapture(any(), any()) } returns false
     }
 

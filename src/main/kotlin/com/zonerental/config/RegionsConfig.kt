@@ -357,27 +357,27 @@ class RegionsConfig(private val plugin: ZoneRental) {
     }
 
     fun verifyAndRepairRegions() {
-        val allSigns = plugin.signsConfig.getAllSigns()
+        val rentalSpaces = plugin.signsConfig.getRegisteredRegions()
 
-        if (allSigns.isEmpty()) {
+        if (rentalSpaces.isEmpty()) {
             if (plugin.configManager?.isDebug == true) {
-                plugin.logger.info("Region verification: No rental signs found")
+                plugin.logger.info("Region verification: No rental spaces found")
             }
             return
         }
 
         val configuredRegions = allRegions
-        val orphanedConfigs = configuredRegions.filter { it !in allSigns.keys }
+        val orphanedConfigs = configuredRegions.filter { it !in rentalSpaces }
 
         if (orphanedConfigs.isNotEmpty()) {
-            plugin.logger.info("Region verification: Found ${orphanedConfigs.size} orphaned config(s) (custom overrides exist but no sign):")
+            plugin.logger.info("Region verification: Found ${orphanedConfigs.size} orphaned config(s) (custom overrides exist but no rental space):")
             orphanedConfigs.forEach { plugin.logger.info("  - $it") }
             plugin.logger.info("These configs are safe but may be unused. Use /zroverride remove <region> to clean up.")
         } else if (plugin.configManager?.isDebug == true) {
             plugin.logger.info("Region verification: No orphaned configs found")
         }
 
-        val usingDefaults = allSigns.size - configuredRegions.size
+        val usingDefaults = rentalSpaces.size - configuredRegions.size
         if (usingDefaults > 0 && plugin.configManager?.isDebug == true) {
             plugin.logger.info("Region verification: $usingDefaults region(s) using default settings")
             plugin.logger.info("Use /zroverride commands to set custom values for specific regions")
@@ -385,8 +385,7 @@ class RegionsConfig(private val plugin: ZoneRental) {
     }
 
     fun getVerificationReport(): Map<String, Any> {
-        val allSigns = plugin.signsConfig.getAllSigns()
-        val regionsWithSigns = allSigns.keys
+        val regionsWithSigns = plugin.signsConfig.getRegisteredRegions()
         val configuredRegions = allRegions
 
         val missingConfigs = regionsWithSigns.filter { it !in configuredRegions }

@@ -17,7 +17,7 @@ Every refund goes through `RentalManager.issueRefund`, which caps the amount at 
 
 | Trigger | Amount | Reason code | Config |
 |---|---|---|---|
-| `/zrreset`, `/zrremove` | `netRefundableAmount` | `admin_reset` (admin recorded as "Admin") | always |
+| `/zrreset`, `/zrremove all` | `netRefundableAmount` | `admin_reset` (admin recorded as "Admin") | always |
 | `/zrduration reset` | `extensionCost` (capped) | `duration_reset` | `extension.refund-on-duration-reset` |
 | `/zrduration remove` | `(totalPaid - totalRefunded) × removedDays ÷ (endDate - startDate)`, whole days only | `time_removal` | `duration.refund-on-time-removal` |
 

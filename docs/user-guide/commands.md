@@ -33,16 +33,19 @@ Commands that take a `<region>` use `WorldRegionParser.parse`:
 | `/zrmember add <region> <player>` | `zonerental.member` | Adds a member (owner only). |
 | `/zrmember remove <region> <player>` | `zonerental.member` | Removes a member (owner only). |
 | `/zrmember list <region>` | `zonerental.members` | Lists the members of any rented region. |
-| `/zrtp <region>` | `zonerental.tp` | Teleports an owner or member near the region's sign. |
+| `/zrtp <region>` | `zonerental.tp` | Teleports an owner or member near the region's oldest sign (lowest ID whose world is loaded), which can be in another world. |
 
 ## Admin commands
 
 | Command | Permission | What it does |
 |---|---|---|
 | `/zrreload` | `zonerental.admin.reload` | Reloads config, signs, storage and regions files. **Read the warning in [Known issues](../reference/known-issues.md#data-loss)**: unsaved data is discarded and `groups.yml` is not reloaded. |
-| `/zrcreatesign <region>` | `zonerental.admin.createsign` | Registers the sign you are looking at (within 5 blocks) for `<region>` in your current world and protects its support block. |
+| `/zrcreate <world:region>` | `zonerental.admin.create` | Registers a WorldGuard region as a rental space without a sign. Nobody can rent it until it has a sign. |
+| `/zrcreatesign <region>` or `<world:region>` | `zonerental.admin.createsign` | Turns the sign you are looking at (within 5 blocks) into a rental sign for the region, registering the rental space first if needed. The sign can be in a different world from the region. Each sign gets the region's next ID (`#1`, `#2`, …), up to `signs.max-per-region`. Its support block is protected. Refuses a sign that already belongs to a region, and warns if the sign or its support block is inside a rental space (restoring that region would remove it). |
 | `/zrreset <region>` | `zonerental.admin.reset` | Ends an active rental with a net refund (`totalPaid - totalRefunded`). Stores the renter's items, restores the region, and keeps the sign and setup. |
-| `/zrremove <region>` | `zonerental.admin.remove` | Resets the rental if active, restores the support block, unregisters the sign, deletes the snapshot, removes the region from its group and removes its overrides (only if it was not in a group). The physical sign is **not** broken when a support block was recorded. |
+| `/zrremove` (looking at a rental sign) | `zonerental.admin.remove` | Removes that sign: breaks it, restores its support block (unless another rental sign uses it) and drops it from `signs.yml`. The rental space and any rental are kept, even if it was the last sign. |
+| `/zrremove <world:region> <id>` | `zonerental.admin.remove` | Same, for the sign with that ID (IDs are listed in `signs.yml`). Works from the console. |
+| `/zrremove all <world:region>` | `zonerental.admin.remove` | Full teardown: resets the rental if active (net refund), breaks every sign and restores their support blocks, unregisters the rental space, deletes the snapshot, removes the region from its group and removes its overrides (only if it was not in a group). Works even if the WorldGuard region was deleted. `/zrremove <world:region>` without `all` or an ID only shows usage. |
 | `/zrduration add <region> <time> [--charge]` | `zonerental.admin.duration` | Adds time. `--charge` only charges if `duration.charge-for-add: true` **and** the renter is online; otherwise the time is added for free. |
 | `/zrduration remove <region> <time>` | `zonerental.admin.duration` | Removes time and refunds proportionally if `duration.refund-on-time-removal`. Refuses if the rental would expire immediately. |
 | `/zrduration set <region> <time>` | `zonerental.admin.duration` | Sets the expiry to now + `<time>`. |
@@ -55,7 +58,7 @@ Commands that take a `<region>` use `WorldRegionParser.parse`:
 | `/zrgroup delete <name> confirm` | `zonerental.admin.group` | Deletes the group and its overrides. |
 | `/zrgroup list` / `view <name>` | `zonerental.admin.group` | Shows groups. |
 | `/zrrefundhistory <region>` | `zonerental.admin.refundhistory` | Shows the refund records of an **active** rental. |
-| `/zrverify` | `zonerental.admin.verify` | Takes no arguments. Reports which signed regions use defaults or overrides, and which overrides have no sign. Can be disabled with `regions-config.enable-verify-command`. |
+| `/zrverify` | `zonerental.admin.verify` | Takes no arguments. Reports rental space and sign counts, which spaces use defaults or overrides, overrides with no rental space, and spaces whose world or WorldGuard region is missing or that have no signs. Can be disabled with `regions-config.enable-verify-command`. |
 
 ## Time format (`/zrduration`)
 

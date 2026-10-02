@@ -89,6 +89,19 @@ class WorldGuardManager(private val plugin: ZoneRental) {
     }
 
     /**
+     * Get the region names of one world for tab completion.
+     */
+    fun getRegionNames(world: World): Set<String> {
+        if (worldGuard == null) return emptySet()
+
+        val regionManager = WorldGuard.getInstance().platform
+            .regionContainer.get(BukkitAdapter.adapt(world))
+            ?: return emptySet()
+
+        return regionManager.regions.keys
+    }
+
+    /**
      * Get all region names across all worlds for tab completion.
      */
     val allRegionNames: Set<String>

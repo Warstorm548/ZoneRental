@@ -2,7 +2,7 @@
 
 **Let players rent WorldGuard regions with a sign.**
 
-Version: 3.2.0
+Version: 3.3.0
 Minecraft: Paper 1.21+
 Languages: Java 21, Kotlin 2.2.20
 
@@ -20,7 +20,8 @@ ZoneRental turns any WorldGuard region into a shop, plot or apartment that playe
 - **Shared builds.** Renters can add friends as members (`/zrmember`), and both can teleport to the rental (`/zrtp`).
 - **Custom pricing.** Set a price and duration per region, or for a whole group of regions at once.
 - **Multi-world.** Works in the overworld, nether, end and custom worlds; the same region name can be rented separately in each.
-- **Protected signs.** Rental signs and the blocks they hang on can't be broken by players.
+- **Several signs per region.** Put up to 3 signs (configurable) for the same region, even in other worlds such as a lobby. They always show the same thing.
+- **Protected signs.** Rental signs and the blocks they hang on can't be broken by players, blown up, burned or moved by pistons.
 - **EzChestShop support.** Chest shops in a region are removed automatically when its rental ends.
 - **Customisable text.** Every message and sign line can be changed and styled with [MiniMessage](https://docs.advntr.dev/minimessage/format.html).
 
@@ -50,6 +51,8 @@ ZoneRental turns any WorldGuard region into a shop, plot or apartment that playe
 2. Drop `ZoneRental-3.2.0.jar` into your `plugins/` folder.
 3. Restart the server (avoid `/reload`).
 4. Adjust `plugins/ZoneRental/config.yml` (prices, durations, limits, messages), then restart or run `/zrreload`.
+
+**Upgrading from 3.2.x or older?** 3.3.0 converts `signs.yml` to a new layout on first start and keeps a copy as `signs.yml.pre-3.3.0.bak`; restore that copy if you go back to an older version. `/zrremove <region>` now needs `all` to remove a whole setup: `/zrremove all world:shop1`.
 
 **Upgrading from 3.1.x or older?** Since 3.2.0, messages and sign text use MiniMessage (`<red>`, `<gold>`) instead of `&` colour codes. Regenerate your `config.yml`, or convert the `messages`, `signs` and `general.prefix` values, otherwise the old codes will show as plain text.
 
@@ -101,9 +104,11 @@ All commands start with `/zr` by default. You can change the prefix with `comman
 
 | Command | Description |
 |---|---|
-| `/zrcreatesign <region>` | Turn the sign you're looking at into a rental sign |
+| `/zrcreate <world:region>` | Register a region as a rental space (signs can be added later) |
+| `/zrcreatesign <region>` | Turn the sign you're looking at into a rental sign (`world:region` for a region in another world) |
 | `/zrreset <region>` | End a rental with a full refund (keeps the sign) |
-| `/zrremove <region>` | Remove a region's rental setup completely |
+| `/zrremove` / `/zrremove <world:region> <id>` | Remove one rental sign (the one you're looking at, or by ID) |
+| `/zrremove all <world:region>` | Remove a region's rental setup completely |
 | `/zrduration add\|remove\|set\|reset <region> [time]` | Change a rental's remaining time (e.g. `2d 3h`) |
 | `/zroverride <setting> <region\|group:name> <value>` | Per-region or per-group price and duration |
 | `/zrgroup create\|edit\|delete\|list\|view` | Group regions for shared settings |
@@ -164,7 +169,7 @@ Please read these before running ZoneRental on a live server:
   - Two-block items such as doors and beds are returned twice.
   - Items stored for the same region are replaced if that region's rental ends again before the player collects them.
 - **Large regions** can briefly lag the server when an admin runs `/zrreset` or `/zrremove` on them. Regions over 2000 chunks can't be rented.
-- **Signs:** each region has one rental sign. Place the sign before running `/zrcreatesign`, attached to a block. `/zrremove` leaves the physical sign in place.
+- **Signs:** place the sign before running `/zrcreatesign`, attached to a block.
 - **Windows servers:** region snapshots use `world:region.schem` filenames, which Windows doesn't allow.
 
 Full, up-to-date list: [Known issues](docs/reference/known-issues.md)

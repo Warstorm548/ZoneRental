@@ -6,6 +6,7 @@ import com.zonerental.util.WorldRegionParser;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -45,11 +46,12 @@ public class SignInteractListener implements Listener {
             return;
         }
 
-        // Parse composite key to extract just the region name
-        // Composite key format: "world:region"
+        // Parse composite key "world:region". The world is the REGION's world, which can
+        // differ from the world the sign (and the player) is in.
         String regionName = WorldRegionParser.extractRegionName(compositeKey);
+        String regionWorldName = WorldRegionParser.extractWorldName(compositeKey);
 
-        if (regionName == null) {
+        if (regionName == null || regionWorldName == null) {
             plugin.getLogger().warning("Invalid composite key format from sign: " + compositeKey);
             return;
         }
@@ -57,36 +59,43 @@ public class SignInteractListener implements Listener {
         event.setCancelled(true);
         Player player = event.getPlayer();
 
+        World regionWorld = plugin.getServer().getWorld(regionWorldName);
+        if (regionWorld == null) {
+            player.sendMessage(plugin.getConfigManager().getMessage("region-not-found",
+                "{region}", compositeKey));
+            return;
+        }
+
         // Check if player is shift-clicking (extend rental)
         if (player.isSneaking()) {
-            handleExtendRental(player, regionName);
+            handleExtendRental(player, regionName, regionWorld);
         } else {
             // Regular click - rent or show info
-            handleRentOrInfo(player, regionName);
+            handleRentOrInfo(player, regionName, regionWorld);
         }
     }
     
-    private void handleRentOrInfo(Player player, String regionName) {
-        Rental rental = plugin.getRentalManager().getRental(regionName, player.getWorld());
+    private void handleRentOrInfo(Player player, String regionName, World world) {
+        Rental rental = plugin.getRentalManager().getRental(regionName, world);
 
         if (rental == null) {
             // Region is available - attempt to rent
-            handleRentRegion(player, regionName);
+            handleRentRegion(player, regionName, world);
         } else {
             // Region is rented - show info
             showRentalInfo(player, rental);
         }
     }
     
-    private void handleRentRegion(Player player, String regionName) {
+    private void handleRentRegion(Player player, String regionName, World world) {
         // Check permission
         if (!player.hasPermission("zonerental.rent")) {
             player.sendMessage(plugin.getConfigManager().getMessage("no-permission"));
             return;
         }
         
-        // Check if region exists in WorldGuard (FIXED: use world-aware method)
-        if (!plugin.getWorldGuardManager().regionExists(regionName, player.getWorld())) {
+        // Check if region exists in WorldGuard (in the region's world, not the player's)
+        if (!plugin.getWorldGuardManager().regionExists(regionName, world)) {
             player.sendMessage(plugin.getConfigManager().getMessage("region-not-found",
                 "{region}", regionName));
             return;
@@ -102,7 +111,7 @@ public class SignInteractListener implements Listener {
         }
         
         // Get price
-        double price = plugin.getConfigManager().getPriceForRegion(regionName, player.getWorld());
+        double price = plugin.getConfigManager().getPriceForRegion(regionName, world);
 
         // Check for permission-based pricing
         for (String perm : plugin.getConfigManager().getPermissionPrices().keySet()) {
@@ -129,8 +138,8 @@ public class SignInteractListener implements Listener {
         economy.withdrawPlayer(player, price);
         
         // Create rental
-        int days = plugin.getConfigManager().getDurationForRegion(regionName, player.getWorld());
-        if (plugin.getRentalManager().createRental(regionName, player.getWorld(), player, days, price)) {
+        int days = plugin.getConfigManager().getDurationForRegion(regionName, world);
+        if (plugin.getRentalManager().createRental(regionName, world, player, days, price)) {
             player.sendMessage(plugin.getConfigManager().getMessage("rental-success",
                 "{region}", regionName,
                 "{days}", String.valueOf(days),
@@ -146,14 +155,14 @@ public class SignInteractListener implements Listener {
         }
     }
     
-    private void handleExtendRental(Player player, String regionName) {
+    private void handleExtendRental(Player player, String regionName, World world) {
         // Check permission
         if (!player.hasPermission("zonerental.extend")) {
             player.sendMessage(plugin.getConfigManager().getMessage("no-permission"));
             return;
         }
 
-        Rental rental = plugin.getRentalManager().getRental(regionName, player.getWorld());
+        Rental rental = plugin.getRentalManager().getRental(regionName, world);
 
         if (rental == null) {
             player.sendMessage(MINI_MESSAGE.deserialize("<red>This region is not rented!"));
@@ -173,7 +182,7 @@ public class SignInteractListener implements Listener {
         }
 
         // Get extension price (same as rental price by default)
-        double price = plugin.getConfigManager().getPriceForRegion(regionName, player.getWorld());
+        double price = plugin.getConfigManager().getPriceForRegion(regionName, world);
         double multiplier = plugin.getConfig().getDouble("extension.price-multiplier", 1.0);
         price = price * multiplier;
 
@@ -195,7 +204,7 @@ public class SignInteractListener implements Listener {
 
         // Extend rental
         int days = plugin.getConfigManager().getExtensionDuration();
-        if (plugin.getRentalManager().extendRental(regionName, player.getWorld(), player, days, price)) {
+        if (plugin.getRentalManager().extendRental(regionName, world, player, days, price)) {
             player.sendMessage(plugin.getConfigManager().getMessage("rental-extended",
                 "{region}", regionName,
                 "{days}", String.valueOf(days),
@@ -257,5 +266,18 @@ public class SignInteractListener implements Listener {
                 event.getPlayer().sendMessage(plugin.getConfigManager().getMessage("sign-support-protected"));
             }
         }
+    }
+
+    /**
+     * A rental sign or support block was actually broken (not cancelled by us or another
+     * plugin): drop the affected signs from signs.yml right away.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockBroken(BlockBreakEvent event) {
+        Location blockLoc = event.getBlock().getLocation();
+        String breaker = event.getPlayer().getName();
+        plugin.getSignManager().onSignBroken(blockLoc, breaker);
+        // Signs on a broken support block pop off
+        plugin.getSignManager().onSupportBlockBroken(blockLoc, breaker);
     }
 }

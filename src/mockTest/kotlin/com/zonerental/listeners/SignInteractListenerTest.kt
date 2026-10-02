@@ -118,4 +118,27 @@ class SignInteractListenerTest : CommandTestSupport() {
         listener.onBlockBreak(event)
         assertTrue(event.isCancelled)
     }
+
+    /** Regression 3.3.0: a sign may be in another world than its region; the region's world must be used. */
+    @Test
+    fun `a sign in another world rents the region in its own world`() {
+        val lobbySign = nether.getBlockAt(5, 64, 5).apply { type = Material.OAK_SIGN }
+        every { signManager.getRegionFromSign(lobbySign.location) } returns "world:shop1"
+        every { rentalManager.createRental(any(), any(), any(), any(), any()) } returns true
+        player.teleport(nether.spawnLocation)
+
+        rightClick(lobbySign)
+
+        verify { rentalManager.getRental("shop1", world) }
+        verify { rentalManager.createRental("shop1", world, player, 7, 100.0) }
+        verify(exactly = 0) { rentalManager.getRental(any(), nether) }
+    }
+
+    @Test
+    fun `a sign broken by an admin is dropped from signs yml`() {
+        val admin = server.addPlayer()
+        listener.onBlockBroken(BlockBreakEvent(sign, admin))
+        verify { signManager.onSignBroken(sign.location, admin.name) }
+        verify { signManager.onSupportBlockBroken(sign.location, admin.name) }
+    }
 }

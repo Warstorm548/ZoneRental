@@ -46,14 +46,15 @@ Covers:
 - `RentalManager` (lifecycle, indexes, persistence, refunds)
 - `WorldEditManager` file handling
 - the retrieval GUI
-- `/zrremove`, `/zrgroup` and duration parsing
+- `/zrcreate`, `/zrremove`, `/zrgroup` and duration parsing
+- `SignManager` (multi-sign redraw, limits, cleanup, support-block restore)
 - a robustness sweep over every command
-- `SignInteractListener`
+- `SignInteractListener` and `SignProtectionListener`
 - container-type consistency
 
 **MockBukkit gaps:**
 - `FailOnUnimplementedExtension` turns MockBukkit's "Not implemented" (which JUnit would otherwise report as *skipped*) into a failure. The only skipped tests should be `@Disabled` known issues.
-- MockBukkit 4.26 doesn't implement `getTargetBlock` or `Material.isItem` for legacy materials. Tests stub or avoid these. Don't change production code to work around MockBukkit.
+- MockBukkit 4.26 doesn't implement `getTargetBlock` or `Material.isItem` for legacy materials, can't create hanging-sign block states, and its sign block data doesn't implement the `WallSign`/`Sign` data interfaces (wall-sign and hanging-sign support detection are covered by the in-game checklist). Tests stub or avoid these. Don't change production code to work around MockBukkit.
 - Stay on MockBukkit 4.26.x while the plugin compiles against Paper 1.21.3; 4.27+ targets 1.21.4.
 
 ## Regression tests
@@ -62,6 +63,7 @@ Tests named for a past fix carry a KDoc like `/** Regression 3.1.1: … */`. Cur
 
 | Fix | Test |
 |---|---|
+| 3.3.0 multiple signs per region, cross-world signs, `/zrremove all` | `SignsConfigTest`, `SignManagerTest`, `SignInteractListenerTest`, `RemoveCommandTest` |
 | 3.1.2 `/zrremove` group cleanup | `RemoveCommandTest` |
 | 3.1.1 GUI pagination and item loss | `StorageManagerGuiTest` |
 | 3.0.5 GUI navigation items | `StorageManagerGuiTest` |

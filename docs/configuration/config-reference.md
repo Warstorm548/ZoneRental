@@ -96,7 +96,10 @@ Values marked *cached* are read once on load or `/zrreload`. Others are read liv
 | `available-format` | 4 MiniMessage lines | Used (cached) | Placeholders: `{region}`, `{price}`, `{duration}` |
 | `rented-format` | 4 MiniMessage lines | Used (cached) | Placeholders: `{region}`, `{owner}`, `{expires}` (MM/dd HH:mm, server timezone), `{days}`, `{hours}` (total hours) |
 | `expiring-format` | — | **Unused** | There is no "expiring" sign state. |
-| `protect-signs` | `true` | Used (cached) | Protects signs and support blocks from breaking. |
+| `protect-signs` | `true` | Used (cached) | Stops players breaking rental signs and their support blocks. Players with `zonerental.admin.breaksign` still can; the broken signs are dropped from `signs.yml`. |
+| `environment-protection` | `true` | Used (cached) | Protects rental signs and support blocks from all explosions (entity and block), pistons, fire, endermen, withers, falling blocks, leaf decay and fading blocks. |
+| `max-per-region` | `3` | Used (cached) | Maximum signs per rental space. `-1` = unlimited. `0` or anything below `-1` falls back to `3` with a console warning. Lowering it never removes existing signs. |
+| `load-chunks-for-updates` | `true` | Used (cached) | `true`: a sign's chunk is loaded to redraw it. `false`: signs in unloaded chunks are redrawn when their chunk loads. With `true`, startup redraws every sign, loading each sign's chunk. |
 | `allow-break-with-permission`, `update-interval`, `expiring-threshold` | — | **Unused** | Sign refresh is fixed at 30 s and only redraws signs that changed. |
 
 ## storage
