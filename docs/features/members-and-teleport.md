@@ -24,7 +24,7 @@
    - At each step, search down `floor-search-down` blocks, then up `floor-search-up` blocks, for a solid, non-dangerous floor with passable feet and head blocks.
    - The player faces away from the sign.
    - Dangerous blocks: lava, fire, soul fire, cactus, magma, wither rose, sweet berry bush, powder snow, campfires.
-4. With `cross-world-warning`, a warning is shown when the region is in another world.
+4. With `cross-world-warning`, a warning is shown when the selected sign is in another world than the player.
 5. Optional sound (`ENTITY_ENDERMAN_TELEPORT`) and portal particles.
 
-If the region has no registered sign, teleporting isn't possible. The cross-world warning compares your world with the sign's world.
+If the region has no registered sign, teleporting isn't possible.

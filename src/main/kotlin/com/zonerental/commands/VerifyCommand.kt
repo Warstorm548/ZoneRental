@@ -110,7 +110,8 @@ class VerifyCommand(private val plugin: ZoneRental) : CommandExecutor {
         }
 
         val prefix = plugin.activePrefix
-        showList(sender, "World not loaded or deleted", missingWorld, "Use /${prefix}remove all <world:region> if the world is gone")
+        showList(sender, "World not loaded or deleted", missingWorld,
+            "Load the world and run /${prefix}remove all <world:region>, or delete the entry from signs.yml while the server is stopped")
         showList(sender, "WorldGuard region missing", missingRegion, "Use /${prefix}remove all <world:region> to clean up")
         showList(sender, "Rental spaces without signs (can't be rented)", noSigns, "Use /${prefix}createsign <world:region> to add one")
         return missingWorld.size + missingRegion.size + noSigns.size

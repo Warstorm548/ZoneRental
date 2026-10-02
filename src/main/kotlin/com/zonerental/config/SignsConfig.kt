@@ -36,6 +36,9 @@ class SignsConfig(private val plugin: ZoneRental) {
     /** "world:region" -> registration */
     private val regions = linkedMapOf<String, RegionEntry>()
 
+    /** Legacy entries that couldn't be migrated; written back unchanged so no data is lost. */
+    private val unmigratedEntries = linkedMapOf<String, Map<String, Any?>>()
+
     // Indexes for O(1) lookups, rebuilt on load and kept in sync on every change
     private val signIndex = mutableMapOf<String, RentalSign>()                // "world:x:y:z" -> sign
     private val supportIndex = mutableMapOf<String, MutableSet<RentalSign>>() // "world:x:y:z" -> signs on that block
@@ -99,6 +102,11 @@ class SignsConfig(private val plugin: ZoneRental) {
                 plugin.logger.warning("Sign '$key' has no world field, skipping migration")
                 continue
             }
+            if (config.contains("signs.$world:$key")) {
+                plugin.logger.warning("Sign '$key' can't be migrated: '$world:$key' already exists. " +
+                    "Kept as is; merge or delete it by hand")
+                continue
+            }
             copySection(config, "signs.$key", "signs.$world:$key")
             config.set("signs.$key", null)
             prefixed++
@@ -108,6 +116,7 @@ class SignsConfig(private val plugin: ZoneRental) {
         // Pre-3.3.0: single sign directly under the region -> sign 1
         var numbered = 0
         for (key in config.getConfigurationSection("signs")?.getKeys(false).orEmpty()) {
+            if (!key.contains(":")) continue // legacy entry that couldn't be prefixed
             val section = config.getConfigurationSection("signs.$key") ?: continue
             if (!isSingleSignLayout(section)) continue
             val values = section.getValues(true).filterValues { it !is ConfigurationSection }
@@ -148,6 +157,7 @@ class SignsConfig(private val plugin: ZoneRental) {
 
     private fun parse(config: YamlConfiguration) {
         regions.clear()
+        unmigratedEntries.clear()
         val signsSection = config.getConfigurationSection("signs") ?: return
 
         for (key in signsSection.getKeys(false)) {
@@ -156,6 +166,7 @@ class SignsConfig(private val plugin: ZoneRental) {
             val regionName = key.substringAfter(":", "")
             if (regionWorld.isEmpty() || regionName.isEmpty()) {
                 plugin.logger.warning("Ignoring invalid signs.yml entry '$key' (expected world:region)")
+                unmigratedEntries[key] = section.getValues(true).filterValues { it !is ConfigurationSection }
                 continue
             }
 
@@ -219,6 +230,10 @@ class SignsConfig(private val plugin: ZoneRental) {
                     config.set("$path.$id.support-block.original-data", support.originalData)
                 }
             }
+        }
+
+        for ((key, values) in unmigratedEntries) {
+            for ((field, value) in values) config.set("signs.$key.$field", value)
         }
 
         try {

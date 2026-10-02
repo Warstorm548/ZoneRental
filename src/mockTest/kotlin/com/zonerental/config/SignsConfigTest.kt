@@ -159,6 +159,25 @@ class SignsConfigTest : MockPluginTest() {
     }
 
     @Test
+    fun `a legacy sign whose world-prefixed key already exists is kept, not merged`() {
+        signsFile.writeText(
+            "signs:\n" +
+            "  shop1:\n    world: world\n    x: 9\n    y: 9\n    z: 9\n" +
+            "  world:shop1:\n    next-id: 2\n    '1':\n      world: world\n      x: 1\n      y: 2\n      z: 3\n"
+        )
+        val signs = SignsConfig(plugin)
+
+        val sign = signs.getSign("shop1", world, 1)!!
+        assertEquals(Triple(1, 2, 3), Triple(sign.x, sign.y, sign.z), "existing entry not overwritten")
+        assertEquals(1, signs.getSignCount("shop1", world))
+
+        signs.save()
+        val saved = YamlConfiguration.loadConfiguration(signsFile)
+        assertEquals(9, saved.getInt("signs.shop1.x"), "legacy entry survives saving")
+        assertEquals(1, saved.getInt("signs.world:shop1.1.x"))
+    }
+
+    @Test
     fun `current files are not migrated or backed up`() {
         val signs = SignsConfig(plugin)
         signs.addSign("shop1", world, loc(1, 2, 3))

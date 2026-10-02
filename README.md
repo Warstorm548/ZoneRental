@@ -48,7 +48,7 @@ ZoneRental turns any WorldGuard region into a shop, plot or apartment that playe
 ## Installation
 
 1. Install Vault, an economy plugin, WorldGuard and WorldEdit.
-2. Drop `ZoneRental-3.2.0.jar` into your `plugins/` folder.
+2. Drop `ZoneRental-3.3.0.jar` into your `plugins/` folder.
 3. Restart the server (avoid `/reload`).
 4. Adjust `plugins/ZoneRental/config.yml` (prices, durations, limits, messages), then restart or run `/zrreload`.
 
